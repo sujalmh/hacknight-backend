@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from pytz import timezone
 
 db = SQLAlchemy()
 
@@ -11,7 +12,7 @@ class User(db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
     role = db.Column(db.String(50), default='student')  # 'student', 'alumni', 'admin'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
     
     college_id = db.Column(db.Integer, db.ForeignKey('college.id'), nullable=False)
     profile = db.relationship('Profile', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -28,6 +29,7 @@ class AlumniProfile(db.Model):
     industry = db.Column(db.String(100), nullable=True)
     experience_years = db.Column(db.Integer, nullable=True)
     skills = db.Column(db.String(250), nullable=True)
+    linkedin = db.String(db.String(300), nullable=True)
     resume = db.Column(db.String(100), nullable=True)
 
 class StudentProfile(db.Model):
@@ -38,6 +40,7 @@ class StudentProfile(db.Model):
     interests = db.Column(db.String(100), nullable=True)
     learning_years = db.Column(db.Integer, nullable=True)
     skills = db.Column(db.String(250), nullable=True)
+    linkedin = db.String(db.String(300), nullable=True)
     resume = db.Column(db.String(100), nullable=True)
 
 class College(db.Model):
@@ -45,7 +48,7 @@ class College(db.Model):
     name = db.Column(db.String(100), nullable=False)
     address = db.Column(db.String(255))
     website = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 
     # Relationship with User
     users = db.relationship('User', backref='college', lazy=True)
@@ -59,7 +62,7 @@ class Job(db.Model):
     company = db.Column(db.String(150), nullable=False)
     location = db.Column(db.String(150), nullable=True)
     posted_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 
 # Event model
 class Event(db.Model):
@@ -87,7 +90,7 @@ class Connection(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     connected_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 
 # Message model
 class Message(db.Model):
@@ -98,7 +101,7 @@ class Message(db.Model):
     status = db.Column(db.Integer, nullable=False, default=0)
     react = db.Column(db.String(10), nullable=True)
     content = db.Column(db.Text, nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 
 # Admin Analytics model
 class AdminAnalytics(db.Model):
@@ -106,4 +109,4 @@ class AdminAnalytics(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     metric_name = db.Column(db.String(150), nullable=False)
     metric_value = db.Column(db.Float, nullable=False)
-    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    recorded_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
