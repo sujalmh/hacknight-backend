@@ -457,6 +457,25 @@ def create_job_alumni():
         db.session.rollback()    
         return jsonify({"message": str(e)}), 400
     
+@app.route('/api/alumni/get_jobs', methods=['GET'])
+@jwt_required()
+def get_jobs():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'alumni':
+        return jsonify({"error": "Only alumni can view jobs"}), 400
+    jobs = Jobs.query.filter_by(posted_by=current_user).all()
+    job_data = []
+    for job in jobs:
+        job_data.append({
+            'title': job.title,
+            'description': job.description,
+            'location': job.location,
+            'company': job.company,
+            'required_skills': job.required_skills,
+        })
+    return jsonify(job_data), 200
+
 @app.route('/api/alumni/get_applicants/<int:job_id>', methods=['GET'])
 def get_applicants(job_id):
     job = Jobs.query.get(job_id)
