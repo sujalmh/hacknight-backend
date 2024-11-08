@@ -6,17 +6,25 @@ from pytz import timezone
 
 db = SQLAlchemy()
 
+class Connection(db.Model):
+    __tablename__ = 'connections'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    connected_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 # User model
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
+    phone_number = db.Column(db.Integer,nullable=False)
     role = db.Column(db.String(50), default='student')
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
     
-    college_id = db.Column(db.Integer, db.ForeignKey('college.id'), nullable=False)
+    college_id = db.Column(db.Integer, db.ForeignKey('college.id'),nullable = True)
     
     @declared_attr
     def profile(cls):
@@ -25,7 +33,8 @@ class User(db.Model):
         else:
             return relationship('StudentProfile', backref='user', uselist=False)
 
-    connections = db.relationship('Connection', backref='user', cascade='all, delete-orphan')
+    connections_as_user = db.relationship('Connection', foreign_keys=[Connection.user_id], backref='user', cascade='all, delete-orphan')
+    connections_as_connected_user = db.relationship('Connection', foreign_keys=[Connection.connected_user_id], backref='connected_user', cascade='all, delete-orphan')
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender')
     received_messages = db.relationship('Message', foreign_keys='Message.receiver_id', backref='receiver')
 
@@ -94,12 +103,7 @@ class Mentorship(db.Model):
     ended_at = db.Column(db.DateTime, nullable=True)
 
 # Connection model (many-to-many self-reference)
-class Connection(db.Model):
-    __tablename__ = 'connections'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    connected_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+
 
 # Message model
 class Message(db.Model):

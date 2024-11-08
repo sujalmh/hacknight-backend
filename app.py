@@ -6,6 +6,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
+from flask_migrate import Migrate
 from models import db, User, Message, AlumniProfile, StudentProfile, Connection
 
 # Initialize the app
@@ -15,10 +16,12 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=6)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+
 # Initialize extensions
 db.init_app(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
+migrate = Migrate(app, db)
 CORS(app)
 
 # Create tables within app context
@@ -168,8 +171,8 @@ def chat_status(user_id, reciever_id):
     receiver = User.query.get(reciever_id)
     if not user or not receiver:
         return jsonify({'message': 'Invalid sender or receiver ID'}), 400
-    messages = Message.query.filter_by(user_id=user_id,receiver_id=reciever_id,status=0).all()
-    if not message:
+    messages = Message.query.filter_by(sender_id=user_id,receiver_id=reciever_id,status=0).all()
+    if not messages:
         return jsonify({'message': 'Message not found'}), 404
     for message in messages:
         message.status = 1
