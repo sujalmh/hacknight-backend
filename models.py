@@ -80,7 +80,8 @@ class AlumniProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     bio = db.Column(db.Text, nullable=True)
-    industry = db.Column(db.String(100), nullable=True)
+    position = db.Column(db.String(100), nullable=True)
+    company = db.Column(db.String(100), nullable=True)
     experience_years = db.Column(db.Integer, nullable=True)
     skills = db.Column(db.String(250), nullable=True)
     linkedin = db.Column(db.String(300), nullable=True)
@@ -206,6 +207,16 @@ class Notifications(db.Model):
     message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 
+class Announcement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    passout_year = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user = db.relationship('User', backref='announcements')
+
+    def __repr__(self):
+        return f'<Announcement {self.title}>'
 
 
 
