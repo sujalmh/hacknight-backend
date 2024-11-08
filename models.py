@@ -109,13 +109,30 @@ class Job(db.Model):
 
 # Event model
 class Event(db.Model):
-    __tablename__ = 'events'
+    __tablename__ = 'event'
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(150), nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    date = db.Column(db.DateTime, nullable=False)
-    location = db.Column(db.String(150), nullable=True)
-    organizer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+    event_name = db.Column(db.String(50), nullable=False)
+    event_description = db.Column(db.Text, nullable=False)
+    max_participants = db.Column(db.Integer, nullable=False)
+    event_date = db.Column(db.DateTime, nullable=False)
+    event_time = db.Column(db.Time, nullable=False)
+    event_venue = db.Column(db.String(50), nullable=False)
+    event_image = db.Column(db.String(100), nullable=True)
+    event_created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+
+    def to_dict(self):
+        return {
+            'event_name': self.event_name,
+            'event_description': self.event_description,
+            'max_participants': self.max_participants,
+            'event_date': self.event_date,
+            'event_time': self.event_time,
+            'event_venue': self.event_venue,
+            'event_created_by': self.event_created_by,
+            'event_image': self.event_image
+        }
 
 # Mentorship model
 class Mentorship(db.Model):
@@ -156,3 +173,5 @@ class AdminAnalytics(db.Model):
     metric_name = db.Column(db.String(150), nullable=False)
     metric_value = db.Column(db.Float, nullable=False)
     recorded_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+
+
