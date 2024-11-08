@@ -43,6 +43,7 @@ class User(db.Model):
     profile_photo = db.Column(db.String(40), unique=True, nullable=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(150), nullable=False)
+    profile_picture = db.Column(db.String(40), unique=True, nullable=True)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
     phone_number = db.Column(db.Integer,nullable=False)
@@ -51,7 +52,7 @@ class User(db.Model):
     college_id = db.Column(db.Integer, db.ForeignKey('college.id'),nullable = True)
     alumni_profile = db.relationship('AlumniProfile', backref='user', uselist=False)
     student_profile = db.relationship('StudentProfile', backref='user', uselist=False)
-    applications = relationship('Application', back_populates='user')
+    applications = db.relationship('Application', back_populates='user')
     @property
     def profile(self):
         if self.role == 'alumni':
