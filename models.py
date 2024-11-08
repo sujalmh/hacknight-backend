@@ -11,11 +11,14 @@ class Connection(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     connected_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    accepted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+
 # User model
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
+    profile_photo = db.Column(db.String(40), unique=True, nullable=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
     name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
