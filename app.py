@@ -374,12 +374,11 @@ def get_recent_chat(other_user_id):
         ((Message.sender_id == current_user) & (Message.receiver_id == other_user_id)) |
         ((Message.sender_id == other_user_id) & (Message.receiver_id == current_user))
     ).order_by(Message.timestamp.desc()).first()
-    print(message.content)
 
     if not message:
         return jsonify({'message': ''})
 
-    return jsonify({'message': str(message)}), 200
+    return jsonify({'message': str(message.content)}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
