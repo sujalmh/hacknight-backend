@@ -135,6 +135,7 @@ class Event(db.Model):
     event_venue = db.Column(db.String(50), nullable=False)
     event_image = db.Column(db.String(100), nullable=True)
     event_created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    event_applications = db.relationship('EventApplication', backref='event', cascade='all, delete-orphan')
     
 
     def to_dict(self):
@@ -148,6 +149,13 @@ class Event(db.Model):
             'event_created_by': self.event_created_by,
             'event_image': self.event_image
         }
+    
+class EventApplication(db.Model):
+    __tablename__ = 'event_applications'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+    
 
 # Mentorship model
 class Mentorship(db.Model):

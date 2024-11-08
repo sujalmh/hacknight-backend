@@ -8,7 +8,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta,time
 from functools import wraps
-from models import db, User, Message, AlumniProfile, StudentProfile, Announcement, Connection,College,Event,Jobs,Application, Notifications
+from models import db, User, Message, AlumniProfile, StudentProfile, Announcement, Connection,College,Event,Jobs,Application, Notifications,EventApplication
 from werkzeug.utils import secure_filename
 #from extract import get_about, get_experiences, get_profile_photo, get_skills
 from sqlalchemy.sql.expression import func
@@ -572,6 +572,7 @@ def get_applicants(job_id):
             })
     return jsonify(applicant_data), 200
 
+
 @app.route('/api/download_resume/<int:user_id>', methods=['GET'])
 def download_resume(user_id):
     applicant = StudentProfile.query.get(user_id)
@@ -640,7 +641,7 @@ def get_job_applications():
         return jsonify({"error": "No job applications found"}), 404
     return jsonify(applications),200
 
-@app.route('/api/get_events', methods=['GET'])
+@app.route('/api/students/get_events', methods=['GET'])
 @jwt_required()
 def get_events():
     current_user = get_jwt_identity()
@@ -669,6 +670,33 @@ def get_events():
 
     return jsonify({"events": events_data}), 200
     
+@app.route('/api/register_event/<int:event_id>', methods=['POST'])
+@jwt_required()
+def register_event(event_id):
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    if user.role != 'student':
+        return jsonify({"error": "Only students can register for events"}), 400
+
+    event = Event.query.get(event_id)
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    # Check if the user has already registered for the event
+    existing_application = EventApplication.query.filter_by(user_id=current_user_id, event_id=event_id).first()
+    if existing_application:
+        return jsonify({"message": "You are already registered for this event"}), 400
+
+    try:
+        new_application = EventApplication(user_id=current_user_id, event_id=event_id)
+        db.session.add(new_application)
+        db.session.commit()
+        return jsonify({"message": "Event registered successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
+
 
 @app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
 @jwt_required()
