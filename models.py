@@ -1,4 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declared_attr
 from datetime import datetime
 from pytz import timezone
 
@@ -11,12 +13,18 @@ class User(db.Model):
     name = db.Column(db.String(150), nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password = db.Column(db.String(150), nullable=False)
-    role = db.Column(db.String(50), default='student')  # 'student', 'alumni', 'admin'
+    role = db.Column(db.String(50), default='student')
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
     
     college_id = db.Column(db.Integer, db.ForeignKey('college.id'), nullable=False)
-    alumni_profile = db.relationship('AlumniProfile', backref='user', uselist=False, cascade='all, delete-orphan')
-    student_profile = db.relationship('StudentProfile', backref='user', uselist=False, cascade='all, delete-orphan')
+    
+    @declared_attr
+    def profile(cls):
+        if cls.role == 'alumni':
+            return relationship('AlumniProfile', backref='user', uselist=False)
+        else:
+            return relationship('StudentProfile', backref='user', uselist=False)
+
     connections = db.relationship('Connection', backref='user', cascade='all, delete-orphan')
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender')
     received_messages = db.relationship('Message', foreign_keys='Message.receiver_id', backref='receiver')
