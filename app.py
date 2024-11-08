@@ -7,7 +7,8 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from models import db, User, Message, AlumniProfile, StudentProfile, Connection
+from flask_migrate import Migrate
+from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College
 
 # Initialize the app
 app = Flask(__name__)
@@ -16,11 +17,13 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=6)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+
 # Initialize extensions
 db.init_app(app)
 migrate = Migrate(app, db)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
+migrate = Migrate(app, db)
 CORS(app)
 
 # Create tables within app context
@@ -37,9 +40,9 @@ def register():
     name = data.get('name')
     phone_number = data.get('phone_number')
     email = data.get('email')
-
     role = data.get('role')
-    user_exists = User.query.filter((User.username == username)).first()
+
+    user_exists = User.query.filter((User.username == username or User.email == email  )).first()
     if user_exists:
         return jsonify({"message": "User with that username or email already exists"}), 400
 
@@ -97,6 +100,27 @@ def register_admin():
             "role": admin_user.role
         }
     }), 201
+
+@app.route('/api/add_college', methods=['POST'])
+@jwt_required()
+def add_college():
+    current_user = get_jwt_identity()
+    user = User.query.filter_by(id=current_user).first()
+    if user.role != 'college':
+        return jsonify({"error": "Only users with college role can add colleges."}), 400
+    data = request.get_json()
+    name = data.get('name')
+    address = data.get('address')
+    website = data.get('website')
+    try:
+        college = College(name=name, address=address, website=website)
+        db.session.add(college)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
+    return jsonify({"message": "College added successfully"}), 201
+
 
 @app.route('/api/profile/student', methods=['POST'])
 @jwt_required()
@@ -170,8 +194,8 @@ def chat_status(user_id, reciever_id):
     receiver = User.query.get(reciever_id)
     if not user or not receiver:
         return jsonify({'message': 'Invalid sender or receiver ID'}), 400
-    messages = Message.query.filter_by(user_id=user_id,receiver_id=reciever_id,status=0).all()
-    if not message:
+    messages = Message.query.filter_by(sender_id=user_id,receiver_id=reciever_id,status=0).all()
+    if not messages:
         return jsonify({'message': 'Message not found'}), 404
     for message in messages:
         message.status = 1
@@ -188,6 +212,7 @@ def get_chat(user1_id, user2_id):
     chat_history = [
         {
             'sender_id': message.sender_id,
+            'reciever_id': message.receiver_id,
             'content': message.content,
             'timestamp': message.timestamp
         } for message in messages
