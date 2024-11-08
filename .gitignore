@@ -4,3 +4,4 @@ tempCodeRunnerFile.py
 instance/
 migrations/
 files/
+.env

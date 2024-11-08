@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 from functools import wraps
 from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College
 from werkzeug.utils import secure_filename
-# from extract import get_about, get_experiences, get_profile_photo, get_skills
+from extract import get_about, get_experiences, get_profile_photo, get_skills
 from sqlalchemy.sql.expression import func
 
 # Initialize the app
@@ -306,6 +306,7 @@ def explore():
             "id": alumnus.id,
             "name": alumnus.name,
             "email": alumnus.email,
+            "profile_photo": alumnus.profile_photo,
             "industry": alumnus.profile.industry
         }
         for alumnus in alumni

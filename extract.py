@@ -10,8 +10,10 @@ import requests
 import time
 import os
 from urllib.parse import unquote, unquote_plus
+from dotenv import load_dotenv
 
-chrome_profile_path = r"C:\Users\sujal\AppData\Local\Google\Chrome\User Data"
+load_dotenv()  
+chrome_profile_path = r"{}".format(os.environ.get("CHROME_PATH"))
 profile_directory = "Default"
 chrome_options = Options()
 chrome_options.add_argument("--headless")
@@ -143,13 +145,12 @@ def get_about(username):
     data = ""
     for element in elements:
         if 'About' in element.text:
-            content = element.text.split()
-
+            content = element.text.split('\n')
             for cont in content:
                 if len(cont)>1:
                     data = cont
     driver.quit()
     return data
     
-get_about("williamhgates")
+print(get_about("williamhgates"))
 
