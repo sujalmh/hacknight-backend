@@ -473,6 +473,7 @@ def get_jobs():
             'location': job.location,
             'company': job.company,
             'required_skills': job.required_skills,
+            'number_of_applicants': len(job.applications)
         })
     return jsonify(job_data), 200
 
