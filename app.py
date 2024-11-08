@@ -8,7 +8,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event,Jobs,Application
+from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event,Jobs,Application, Notifications
 from werkzeug.utils import secure_filename
 #from extract import get_about, get_experiences, get_profile_photo, get_skills
 from sqlalchemy.sql.expression import func
@@ -64,6 +64,7 @@ def register():
     name = data.get('name')
     phone_number = data.get('phone_number')
     email = data.get('email')
+    college_id = data.get('college_id')
     role = data.get('role').lower()
 
     user_exists = User.query.filter((User.username == username or User.email == email  )).first()
@@ -71,7 +72,7 @@ def register():
         return jsonify({"message": "User with that username or email already exists"}), 400
 
     hashed_password = generate_password_hash(password)
-    user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role)
+    user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role, college_id=college_id)
     db.session.add(user)
     db.session.commit()
 
@@ -126,12 +127,7 @@ def register_admin():
     }), 201
 
 @app.route('/api/add_college', methods=['POST'])
-@jwt_required()
 def add_college():
-    current_user = get_jwt_identity()
-    user = User.query.filter_by(id=current_user).first()
-    if user.role != 'college':
-        return jsonify({"error": "Only users with college role can add colleges."}), 400
     data = request.get_json()
     name = data.get('name')
     address = data.get('address')
@@ -144,6 +140,17 @@ def add_college():
         db.session.rollback()
         return jsonify({"message": str(e)}), 400
     return jsonify({"message": "College added successfully"}), 201
+
+@app.route('/api/get_college', methods=['GET'])
+def get_college():
+    colleges = College.query.all()
+    college_data = [{
+        "id": college.id,
+        "name": college.name,
+        "address": college.address,
+        "website": college.website
+    } for college in colleges]
+    return jsonify(college_data), 200
 
 
 @app.route('/api/profile/student', methods=['POST'])
@@ -316,7 +323,10 @@ def get_chat(user1_id, user2_id):
 @app.route("/api/explore", methods=['GET'])
 @jwt_required()
 def explore():
-    alumni = User.query.filter_by(role='alumni').all()
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    alumni = User.query.filter_by(role='alumni', college_id = user.college_id).all()
+    print(user.college_id, user.email)
     alumni_data = [
         {
             "id": alumnus.id,
@@ -331,10 +341,18 @@ def explore():
 @jwt_required()
 def send_connection(user1_id, user2_id):
     current_user = get_jwt_identity()
+    print(current_user)
     if user1_id!=current_user:
         return jsonify({"error": "You can only send connection requests on your own behalf"}), 400
+    user1 = User.query.get(user1_id)
+    user2 = User.query.get(user2_id)
+    if user1.college_id != user2.college_id:
+        return jsonify({"error": "You can only send connection requests to users of the same college"}), 400
     user = User.query.get(user1_id)
     reciever = User.query.get(user2_id)
+    new_notification = Notifications(user_id=user2_id, title="Connection Request", message=f"{user.name} has sent you a connection request")
+    db.session.add(new_notification)
+    db.session.commit()
     if not user or not reciever:
         return jsonify({"error": "Invalid user ID"}), 400
     connection = Connection(user_id=user1_id, connected_user_id=user2_id)
@@ -370,7 +388,9 @@ def accept_invitation(user_id):
         return jsonify({"error": "Only alumni can view connection requests"}), 400
     
     sender = User.query.get(user_id)
-    
+    new_notification = Notifications(user_id=user_id, title="Connection Accepted", message=f"{user.name} has accepted your connection request")
+    db.session.add(new_notification)
+    db.session.commit()
     connection = Connection.query.filter_by(user_id=sender.id, connected_user_id=current_user).first()
     connection.accepted = True
     db.session.commit()
@@ -558,6 +578,35 @@ def get_recent_chat(other_user_id):
         return jsonify({'message': ''})
 
     return jsonify({'message': str(message.content)}), 200
+
+@app.route('/api/get_notifications', methods=['GET'])
+@jwt_required()
+def get_notifications():
+    current_user = get_jwt_identity()
+    notifications = Notifications.query.filter_by(user_id=current_user).all()
+    notification_data = []
+    for notification in notifications:
+        notification_data.append({
+            'title': notification.title,
+            'message': notification.message,
+            'timestamp': notification.created_at
+        })
+    print(notification_data)
+    return jsonify(notification_data), 200
+
+@app.route('/api/get_users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+    user_data = []
+    for user in users:
+        user_data.append({
+            'id': user.id,
+            'name': user.name,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role
+        })
+    return jsonify(user_data), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
