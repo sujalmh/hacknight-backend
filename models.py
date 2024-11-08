@@ -13,20 +13,42 @@ class User(db.Model):
     role = db.Column(db.String(50), default='student')  # 'student', 'alumni', 'admin'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    college_id = db.Column(db.Integer, db.ForeignKey('college.id'), nullable=False)
     profile = db.relationship('Profile', backref='user', uselist=False, cascade='all, delete-orphan')
     connections = db.relationship('Connection', backref='user', cascade='all, delete-orphan')
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender')
     received_messages = db.relationship('Message', foreign_keys='Message.receiver_id', backref='receiver')
 
 # Profile model
-class Profile(db.Model):
-    __tablename__ = 'profiles'
+class AlumniProfile(db.Model):
+    __tablename__ = 'alumni_profiles'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     bio = db.Column(db.Text, nullable=True)
     industry = db.Column(db.String(100), nullable=True)
     experience_years = db.Column(db.Integer, nullable=True)
     skills = db.Column(db.String(250), nullable=True)
+    resume = db.Column(db.String(100), nullable=True)
+
+class StudentProfile(db.Model):
+    __tablename__ = 'student_profiles'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    bio = db.Column(db.Text, nullable=True)
+    interests = db.Column(db.String(100), nullable=True)
+    learning_years = db.Column(db.Integer, nullable=True)
+    skills = db.Column(db.String(250), nullable=True)
+    resume = db.Column(db.String(100), nullable=True)
+
+class College(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.String(255))
+    website = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship with User
+    users = db.relationship('User', backref='college', lazy=True)
 
 # Job model
 class Job(db.Model):

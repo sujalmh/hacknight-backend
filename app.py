@@ -31,13 +31,13 @@ def register():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-
+    role = data.get('role')
     user_exists = User.query.filter((User.username == username)).first()
     if user_exists:
         return jsonify({"message": "User with that username or email already exists"}), 400
     print(password)
     hashed_password = generate_password_hash(password)
-    user = User(username=username, password=hashed_password)
+    user = User(username=username, password=hashed_password, role=role)
     db.session.add(user)
     db.session.commit()
 
@@ -61,14 +61,47 @@ def login():
 
     return jsonify(access_token=access_token), 200
 
-# Protected route example
-@app.route('/api/protected', methods=['GET'])
-@jwt_required()
-def protected_route():
-    current_user_id = get_jwt_identity()
-    user = db.session.get(User, current_user_id)
-    
-    return jsonify({'message': f'Hello, {user.username}! This is a protected route.'}), 200
+@app.route('/api/register/admin', methods=['POST'])
+def register_admin():
+    data = request.get_json()
+
+    # Validate required fields
+    required_fields = ['name', 'email', 'password', 'secret_key']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Field '{field}' is required"}), 400
+
+    # Check the secret key (this should be kept secure in your configuration)
+    SECRET_ADMIN_KEY = "my_secure_key"  # Replace this with an environment variable or config setting
+    if data['secret_key'] != SECRET_ADMIN_KEY:
+        return jsonify({"error": "Invalid secret key"}), 403
+
+    # Check if the email is unique
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({"error": "Email is already registered"}), 400
+
+    # Hash the password
+    hashed_password = generate_password_hash(data['password'], method='sha256')
+
+    # Create the admin user
+    admin_user = User(
+        name=data['name'],
+        email=data['email'],
+        password=hashed_password,
+        role='admin'
+    )
+    db.session.add(admin_user)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Admin registered successfully",
+        "user": {
+            "id": admin_user.id,
+            "name": admin_user.name,
+            "email": admin_user.email,
+            "role": admin_user.role
+        }
+    }), 201
 
 # Run the app
 if __name__ == '__main__':
