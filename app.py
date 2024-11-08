@@ -663,7 +663,7 @@ def get_users():
 
 @app.route("/api/get_role", methods=['GET'])
 @jwt_required()
-def invitations():
+def get_roles():
     current_user = get_jwt_identity()
     user = User.query.get(current_user)
     return jsonify({"role": user.role}), 200
