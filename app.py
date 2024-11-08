@@ -126,6 +126,20 @@ def send_message(user_id, receiver_id):
     db.session.commit()
     return jsonify({'message': 'Message sent successfully'}), 201
 
+@app.route('/api/<int:user_id>/chat_staus/<int:reciever_id>', methods=['POST'])
+def chat_status(user_id, reciever_id):
+    user = User.query.get(user_id)
+    receiver = User.query.get(reciever_id)
+    if not user or not receiver:
+        return jsonify({'message': 'Invalid sender or receiver ID'}), 400
+    messages = Message.query.filter_by(user_id=user_id,receiver_id=reciever_id,status=0).all()
+    if not message:
+        return jsonify({'message': 'Message not found'}), 404
+    for message in messages:
+        message.status = 1
+    db.session.commit()
+    return jsonify({'message': 'Message status updated successfully'}), 200
+
 @app.route('/api/<int:user1_id>/get_chat/<int:user2_id>', methods=['GET'])
 def get_chat(user1_id, user2_id):
     messages = Message.query.filter(
