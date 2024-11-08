@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify,json
+from flask import Flask, request, jsonify, json, send_from_directory
 import os
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -39,6 +39,22 @@ with app.app_context():
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
+def get_resume_by_application(application_id):
+    application = Application.query.get(application_id)
+    
+    if not application:
+        return {"error": "Application not found"}
+    
+    # Retrieve the user associated with the application
+    user = application.user
+    
+    resume = user.profile.resume if user.profile else None
+    
+    if resume:
+        return resume
+    else:
+        return 'Resume not found'
+
 # Register route
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -48,7 +64,7 @@ def register():
     name = data.get('name')
     phone_number = data.get('phone_number')
     email = data.get('email')
-    role = data.get('role')
+    role = data.get('role').lower()
 
     user_exists = User.query.filter((User.username == username or User.email == email  )).first()
     if user_exists:
@@ -157,7 +173,7 @@ def create_student_profile():
 
     if allowed_file(resume_file.filename):
         unique_filename = f"{user.username}_{resume_file.filename}"
-        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resume/', unique_filename)
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes/', unique_filename)
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         resume_file.save(resume_path)
         resume = resume_path 
@@ -441,6 +457,43 @@ def create_job_alumni():
         db.session.rollback()    
         return jsonify({"message": str(e)}), 400
     
+@app.route('/api/alumni/get_applicants/<int:job_id>', methods=['GET'])
+def get_applicants(job_id):
+    job = Jobs.query.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    applications = Application.query.filter_by(job_id=job_id).all()
+    applicant_data = []
+    for application in applications:
+        
+        applicant = StudentProfile.query.get(application.user_id)
+        if applicant:
+            applicant_data.append({
+                'id': applicant.id,
+                'name':applicant.user.name,
+                'skills': applicant.skills, 
+                'resume': get_resume_by_application(applicant.id)
+            })
+    return jsonify(applicant_data), 200
+
+@app.route('/api/download_resume/<int:user_id>', methods=['GET'])
+def download_resume(user_id):
+    applicant = StudentProfile.query.get(user_id)
+    
+    if not applicant or not applicant.resume:
+        return jsonify({"error": "Resume not found"}), 404
+
+    base = os.getcwd()
+    resume_path = base+'/'+applicant.resume
+
+    if not os.path.isfile(resume_path):
+        return jsonify({"error": "Resume file not found"}), 404
+    return send_from_directory(base, applicant.resume, as_attachment=True)
+
+
+    
+
+
 @app.route('/api/student/apply_job/<int:job_id>', methods=['POST'])
 @jwt_required()
 def apply_job(job_id):
