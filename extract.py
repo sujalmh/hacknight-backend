@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  
 chrome_profile_path = r"{}".format(os.environ.get("CHROME_PATH"))
-profile_directory = "Default"
+profile_directory = os.environ.get("PROFILE")
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--disable-gpu")
