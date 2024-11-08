@@ -52,6 +52,19 @@ class AlumniProfile(db.Model):
     linkedin = db.Column(db.String(300), nullable=True)
     resume = db.Column(db.String(100), nullable=True)
     passout_year = db.Column(db.Integer, nullable=True)
+
+    def to_dict(self):
+        return {    
+            'bio': self.bio,
+            'industry': self.industry,
+            'experience_years': self.experience_years,
+            'skills': self.skills,
+            'linkedin': self.linkedin,
+            'resume': self.resume,
+            'passout_year': self.passout_year
+        }
+
+
   
 class StudentProfile(db.Model):
     __tablename__ = 'student_profiles'
@@ -63,6 +76,16 @@ class StudentProfile(db.Model):
     skills = db.Column(db.String(250), nullable=True)
     linkedin = db.Column(db.String(300), nullable=True)
     resume = db.Column(db.String(100), nullable=True)
+
+    def to_dict(self):
+        return {    
+            'bio': self.bio,
+            'interests': self.interests,
+            'learning_years': self.learning_years,
+            'skills': self.skills,
+            'linkedin': self.linkedin,
+            'resume': self.resume
+        }
 
 class College(db.Model):
     id = db.Column(db.Integer, primary_key=True)
