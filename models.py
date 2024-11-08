@@ -15,7 +15,8 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
     
     college_id = db.Column(db.Integer, db.ForeignKey('college.id'), nullable=False)
-    profile = db.relationship('Profile', backref='user', uselist=False, cascade='all, delete-orphan')
+    alumni_profile = db.relationship('AlumniProfile', backref='user', uselist=False, cascade='all, delete-orphan')
+    student_profile = db.relationship('StudentProfile', backref='user', uselist=False, cascade='all, delete-orphan')
     connections = db.relationship('Connection', backref='user', cascade='all, delete-orphan')
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender')
     received_messages = db.relationship('Message', foreign_keys='Message.receiver_id', backref='receiver')
