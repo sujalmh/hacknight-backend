@@ -14,8 +14,6 @@ class Application(db.Model):
     job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'), nullable=False)
     application_date = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
     status = db.Column(db.String(20), default='pending')
-
-    
     user = relationship('User', back_populates='applications')
     jobs = relationship('Jobs', back_populates='applications')
 
@@ -27,6 +25,16 @@ class Connection(db.Model):
     connected_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     accepted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+
+
+class College(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.String(255))
+    website = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+    users = db.relationship('User', backref='college_students', lazy=True)
+
 
 # User model
 class User(db.Model):
@@ -51,7 +59,6 @@ class User(db.Model):
             return self.alumni_profile
         else:
             return self.student_profile
-
     connections_as_user = db.relationship('Connection', foreign_keys=[Connection.user_id], backref='user', cascade='all, delete-orphan')
     connections_as_connected_user = db.relationship('Connection', foreign_keys=[Connection.connected_user_id], backref='connected_user', cascade='all, delete-orphan')
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender')
@@ -113,15 +120,6 @@ class StudentProfile(db.Model):
             'linkedin': self.linkedin,
             'resume': self.resume
         }
-
-class College(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    address = db.Column(db.String(255))
-    website = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
-    users = db.relationship('User', backref='college', lazy=True)
-
 
 # Event model
 class Event(db.Model):
@@ -200,7 +198,13 @@ class Jobs(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
     applications = relationship('Application', back_populates='jobs')
 
-
+class Notifications(db.Model):
+    __tablename__ = 'notifications'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(150), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 
 
 
