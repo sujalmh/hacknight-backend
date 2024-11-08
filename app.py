@@ -32,7 +32,6 @@ jwt = JWTManager(app)
 migrate = Migrate(app, db)
 CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "http://localhost:5173"}})
 
-# Create tables within app context
 with app.app_context():
     db.create_all()  
 
@@ -55,7 +54,6 @@ def get_resume_by_application(application_id):
     else:
         return 'Resume not found'
 
-# Register route
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
@@ -69,15 +67,16 @@ def register():
     user_exists = User.query.filter((User.username == username or User.email == email  )).first()
     if user_exists:
         return jsonify({"message": "User with that username or email already exists"}), 400
+    try:
+        hashed_password = generate_password_hash(password)
+        user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({"message": "User registered successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
 
-    hashed_password = generate_password_hash(password)
-    user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role)
-    db.session.add(user)
-    db.session.commit()
-
-    return jsonify({"message": "User registered successfully"}), 201
-
-# Login route
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -144,7 +143,6 @@ def add_college():
         db.session.rollback()
         return jsonify({"message": str(e)}), 400
     return jsonify({"message": "College added successfully"}), 201
-
 
 @app.route('/api/profile/student', methods=['POST'])
 @jwt_required()
@@ -261,7 +259,6 @@ def view_profile(user_id):
         return jsonify({'message': 'Profile not found'}), 404
     
     return jsonify(profile.to_dict())
-
 
 @app.route('/api/<int:user_id>/send_message/<int:receiver_id>', methods=['POST'])
 def send_message(user_id, receiver_id):
@@ -510,9 +507,28 @@ def download_resume(user_id):
         return jsonify({"error": "Resume file not found"}), 404
     return send_from_directory(base, applicant.resume, as_attachment=True)
 
-
+@app.route('/api/student/get_all_jobs', methods=['GET'])
+@jwt_required()
+def get_all_jobs():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
     
-
+    if user.role != 'student':
+        return jsonify({"error": "Only students can view jobs"}), 400
+    college_id = user.college_id
+    jobs = Jobs.query.join(User, User.id == Jobs.posted_by) \
+    .filter(User.role == 'alumni', User.college_id == college_id) \
+    .all()
+    job_data = []
+    for job in jobs:
+        job_data.append({
+            'title': job.title,
+            'description': job.description,
+            'location': job.location,
+            'company': job.company,
+            'required_skills': job.required_skills
+        })
+    return jsonify(job_data), 200
 
 @app.route('/api/student/apply_job/<int:job_id>', methods=['POST'])
 @jwt_required()
@@ -544,7 +560,6 @@ def get_job_applications():
     if not applications:
         return jsonify({"error": "No job applications found"}), 404
     return jsonify(applications),200
-
 
 @app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
 @jwt_required()
