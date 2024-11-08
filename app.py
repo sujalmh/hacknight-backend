@@ -23,6 +23,7 @@ app.config['UPLOAD_FOLDER'] = 'files/'
 app.config['ALLOWED_EXTENSIONS'] = {'pdf'}
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 app.config['EVENT_IMAGE_UPLOAD_FOLDER']= 'files/event_images/'
+app.config['PROFILE_UPLOAD_FOLDER']= 'files/profile_pictures/'
 
 
 # Initialize extensions
@@ -57,20 +58,37 @@ def get_resume_by_application(application_id):
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    data = request.json
+    json_data = request.form.get('json_data')
+    if json_data:
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON format"}), 400
+    else:
+        return jsonify({"error": "No JSON data provided"}), 400
+    profile_picture = request.files['profile_picture']
+
     username = data.get('username')
     password = data.get('password')
     name = data.get('name')
     phone_number = data.get('phone_number')
     email = data.get('email')
     role = data.get('role').lower()
+    if profile_picture:
+        unique_filename = f"profile_{username}_{profile_picture.filename}"
+        image_path = os.path.join(app.config['PROFILE_UPLOAD_FOLDER'], unique_filename)
+        os.makedirs(app.config['PROFILE_UPLOAD_FOLDER'], exist_ok=True)
+        profile_picture.save(image_path)
+        picture = image_path
+    else:
+        profile_picture = None
 
-    user_exists = User.query.filter((User.username == username or User.email == email  )).first()
+    user_exists = User.query.filter((User.username == username or User.email == email )).first()
     if user_exists:
         return jsonify({"message": "User with that username or email already exists"}), 400
     try:
         hashed_password = generate_password_hash(password)
-        user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role)
+        user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role,profile_picture=image_path)
         db.session.add(user)
         db.session.commit()
         return jsonify({"message": "User registered successfully"}), 201
@@ -167,6 +185,7 @@ def create_student_profile():
     if 'resume' not in request.files:
         return jsonify({"error": "No file part"}), 400
     
+
     resume_file = request.files['resume']
     resume = None
 
