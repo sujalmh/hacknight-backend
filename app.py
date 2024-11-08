@@ -113,6 +113,7 @@ def create_student_profile():
         interests=data.get('interests', ''),
         learning_years=data.get('learning_years', ''),
         skills=data.get('skills', ''),
+        linkedin=data.get('linkedin',''),
         resume=data.get('resume', '')
     )
     db.session.add(new_profile)
@@ -137,6 +138,7 @@ def create_alumni_profile():
         industry=data.get('industry', ''),
         experience_years=data.get('experience_years', ''),
         skills=data.get('skills', ''),
+        linkedin=data.get('linkedin',''),
         resume=data.get('resume', '')
     )
     db.session.add(new_profile)
