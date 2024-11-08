@@ -8,7 +8,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta,time
 from functools import wraps
-from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event,Jobs,Application, Notifications
+from models import db, User, Message, AlumniProfile, StudentProfile, Announcement, Connection,College,Event,Jobs,Application, Notifications
 from werkzeug.utils import secure_filename
 #from extract import get_about, get_experiences, get_profile_photo, get_skills
 from sqlalchemy.sql.expression import func
@@ -244,10 +244,12 @@ def create_alumni_profile():
     new_profile = AlumniProfile(
         user_id=current_user,
         bio=data.get('bio', ''),
-        industry=data.get('industry', ''),
+        position=data.get('position', ''),
+        company=data.get('company', ''),
         experience_years=data.get('experience_years', ''),
         skills=data.get('skills', ''),
         linkedin=data.get('linkedin',''),
+        passout_year = data.get('passout_year', ''),
         resume= resume
     )
     db.session.add(new_profile)
@@ -329,8 +331,10 @@ def explore():
     alumni_data = [
         {
             "id": alumnus.id,
+            "profile_picture": alumnus.profile_picture,
             "name": alumnus.name,
-            "email": alumnus.email
+            "position": alumnus.profile.position,
+            "company": alumnus.profile.company
         }
         for alumnus in alumni
     ]
@@ -668,6 +672,52 @@ def get_roles():
     user = User.query.get(current_user)
     return jsonify({"role": user.role}), 200
 
+@app.route("/api/post_announcement", methods=['POST'])
+@jwt_required()
+def post_announcement():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+
+    # Ensure that only teachers can post announcements
+    if user.role != 'college':
+        return jsonify({"error": "Only teachers can post announcements."}), 403
+
+    data = request.get_json()
+    title = data.get('title')
+    message = data.get('message')
+    passout_year = data.get('passout_year')
+
+    if not title or not message or not passout_year:
+        return jsonify({"error": "Title, message, and passout year are required."}), 400
+
+    new_announcement = Announcement(
+        title=title,
+        message=message,
+        passout_year=passout_year,
+        user_id=user.id
+    )
+    
+    db.session.add(new_announcement)
+    db.session.commit()
+
+    return jsonify({"message": "Announcement posted successfully."}), 201
+
+@app.route("/api/announcements", methods=['GET'])
+@jwt_required()
+def get_announcements():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+
+    # Get all announcements for the user's passout year
+    announcements = Announcement.query.filter_by(passout_year=user.passout_year).all()
+
+    return jsonify([{
+        'id': announcement.id,
+        'title': announcement.title,
+        'message': announcement.message,
+        'user_name': announcement.user.name,
+        'created_at': announcement.created_at
+    } for announcement in announcements]), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
