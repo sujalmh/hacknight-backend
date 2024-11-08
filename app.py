@@ -111,6 +111,14 @@ def register_admin():
         }
     }), 201
 
+@app.route('/api/<int:user_id>/send_message/<int:receiver_id>', methods=['POST'])
+def send_message(user_id, receiver_id):
+    user = User.query.get(user_id)
+    receiver = User.query.get(receiver_id)
+    data = request.get_json()
+    if not user or not receiver:
+        return jsonify({'message': 'Invalid sender or receiver ID'}), 400
+    
     content = data.get('content')
 
     message = Message(sender_id=user_id, receiver_id=receiver_id, content=content)
@@ -133,6 +141,8 @@ def get_chat(user1_id, user2_id):
         } for message in messages
     ]
     return jsonify(chat_history), 200
+
+
 # Run the app
 if __name__ == '__main__':
     app.run(debug=True)
