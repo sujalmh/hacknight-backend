@@ -6,7 +6,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from models import db, User, Message, Connection
+from models import db, User, Message, AlumniProfile, StudentProfile, Connection
 
 # Initialize the app
 app = Flask(__name__)
@@ -26,26 +26,23 @@ with app.app_context():
     db.create_all()  
 
 
-
-@app.route('/api/user/<int:user_id>send_message/<int:receiver_id>', methods=['POST'])
-def send_message(user_id, receiver_id):
-    sender = User.query.get(user_id)
-    receiver = User.query.get(receiver_id)
-    if not sender or not receiver:
-        return jsonify({'message': 'Invalid sender or receiver ID'}), 400
 # Register route
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
     username = data.get('username')
     password = data.get('password')
+    name = data.get('name')
+    phone_number = data.get('phone_number')
+    email = data.get('email')
+
     role = data.get('role')
     user_exists = User.query.filter((User.username == username)).first()
     if user_exists:
         return jsonify({"message": "User with that username or email already exists"}), 400
-    print(password)
+
     hashed_password = generate_password_hash(password)
-    user = User(username=username, password=hashed_password, role=role)
+    user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role)
     db.session.add(user)
     db.session.commit()
 
@@ -57,8 +54,6 @@ def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
-
-    user = User.query.filter_by(username=data['username']).first()
 
     user = User.query.filter_by(username=username).first()
 
@@ -72,26 +67,17 @@ def login():
 @app.route('/api/register/admin', methods=['POST'])
 def register_admin():
     data = request.get_json()
-
-    # Validate required fields
     required_fields = ['name', 'email', 'password', 'secret_key']
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"Field '{field}' is required"}), 400
 
-    # Check the secret key (this should be kept secure in your configuration)
-    SECRET_ADMIN_KEY = "my_secure_key"  # Replace this with an environment variable or config setting
+    SECRET_ADMIN_KEY = "my_secure_key"
     if data['secret_key'] != SECRET_ADMIN_KEY:
         return jsonify({"error": "Invalid secret key"}), 403
-
-    # Check if the email is unique
     if User.query.filter_by(email=data['email']).first():
         return jsonify({"error": "Email is already registered"}), 400
-
-    # Hash the password
     hashed_password = generate_password_hash(data['password'], method='sha256')
-
-    # Create the admin user
     admin_user = User(
         name=data['name'],
         email=data['email'],
@@ -100,7 +86,6 @@ def register_admin():
     )
     db.session.add(admin_user)
     db.session.commit()
-
     return jsonify({
         "message": "Admin registered successfully",
         "user": {
@@ -110,6 +95,55 @@ def register_admin():
             "role": admin_user.role
         }
     }), 201
+
+@app.route('/api/profile/student', methods=['POST'])
+@jwt_required()
+def create_student_profile():
+    data = request.get_json()
+
+    current_user = get_jwt_identity()
+
+    user = User.query.get(current_user)
+    if user.role != 'student':
+        return jsonify({"error": "Only students can create student profiles"}), 400
+
+    new_profile = StudentProfile(
+        user_id=current_user,
+        bio=data.get('bio', ''),
+        interests=data.get('interests', ''),
+        learning_years=data.get('learning_years', ''),
+        skills=data.get('skills', ''),
+        resume=data.get('resume', '')
+    )
+    db.session.add(new_profile)
+    db.session.commit()
+
+    return jsonify({"message": "Student profile created successfully"}), 201
+
+@app.route('/api/profile/alumni', methods=['POST'])
+@jwt_required()
+def create_alumni_profile():
+    data = request.get_json()
+
+    current_user = get_jwt_identity() 
+
+    user = User.query.get(current_user)
+    if user.role != 'alumni':
+        return jsonify({"error": "Only alumni can create alumni profiles"}), 400
+
+    new_profile = AlumniProfile(
+        user_id=current_user,
+        bio=data.get('bio', ''),
+        industry=data.get('industry', ''),
+        experience_years=data.get('experience_years', ''),
+        skills=data.get('skills', ''),
+        resume=data.get('resume', '')
+    )
+    db.session.add(new_profile)
+    db.session.commit()
+
+    return jsonify({"message": "Alumni profile created successfully"}), 201
+
 
 @app.route('/api/<int:user_id>/send_message/<int:receiver_id>', methods=['POST'])
 def send_message(user_id, receiver_id):
