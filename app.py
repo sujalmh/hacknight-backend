@@ -232,6 +232,20 @@ def create_alumni_profile():
 
     return jsonify({"message": "Alumni profile created successfully"}), 201
 
+@app.route('/api/view_profile/<int:user_id>', methods=['GET'])
+def view_profile(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    if user.role == 'student':
+        profile = StudentProfile.query.filter_by(user_id=user_id).first()
+    elif user.role == 'alumni':
+        profile = AlumniProfile.query.filter_by(user_id=user_id).first()
+    if not profile:
+        return jsonify({'message': 'Profile not found'}), 404
+    
+    return jsonify(profile.to_dict())
+
 
 @app.route('/api/<int:user_id>/send_message/<int:receiver_id>', methods=['POST'])
 def send_message(user_id, receiver_id):
@@ -263,7 +277,11 @@ def chat_status(user_id, reciever_id):
     return jsonify({'message': 'Message status updated successfully'}), 200
 
 @app.route('/api/<int:user1_id>/get_chat/<int:user2_id>', methods=['GET'])
+@jwt_required()
 def get_chat(user1_id, user2_id):
+    current_user = get_jwt_identity()
+    if current_user != user1_id:
+        return jsonify({'message': 'Unauthorized access'}), 401
     messages = Message.query.filter(
         ((Message.sender_id == user1_id) & (Message.receiver_id == user2_id)) |
         ((Message.sender_id == user2_id) & (Message.receiver_id == user1_id))
