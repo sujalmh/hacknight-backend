@@ -6,7 +6,7 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta,time
 from functools import wraps
 from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event,Jobs,Application
 from werkzeug.utils import secure_filename
@@ -401,8 +401,6 @@ def connections():
         })
     return jsonify(connection_data), 200
 
-from datetime import datetime, time
-
 @app.route('/api/alumni/create_event', methods=['POST'])
 @jwt_required()
 def create_event_alumni():
@@ -424,24 +422,21 @@ def create_event_alumni():
     if not image_file:
         return jsonify({"error": "Image file is required"}), 400
 
-    unique_filename = f"event_{current_user}_{image_file.filename}"
-    event_image_path = os.path.join(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], unique_filename)
-    os.makedirs(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], exist_ok=True)
-    image_file.save(event_image_path)
-
     event_name = data.get('event_name')
     event_description = data.get('event_description')
     max_participants = data.get('max_participants')
+    unique_filename = f"event_{event_name}_{image_file.filename}"
+    event_image_path = os.path.join(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], unique_filename)
+    os.makedirs(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], exist_ok=True)
+    image_file.save(event_image_path)
     
-    # Parse event_date as a datetime object
-    event_date_str = data.get('event_date')  # assuming it's in 'YYYY-MM-DD' format
+    event_date_str = data.get('event_date') 
     try:
         event_date = datetime.strptime(event_date_str, '%Y-%m-%d')
     except ValueError:
         return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
-    
-    # Parse event_time as a time object
-    event_time_str = data.get('event_time')  # assuming it's in 'HH:MM:SS' format
+
+    event_time_str = data.get('event_time') 
     try:
         event_time = datetime.strptime(event_time_str, '%H:%M:%S').time()
     except ValueError:
