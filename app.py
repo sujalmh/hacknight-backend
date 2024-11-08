@@ -6,7 +6,7 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta,time
 from functools import wraps
 from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event,Jobs,Application, Notifications
 from werkzeug.utils import secure_filename
@@ -22,6 +22,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'files/'
 app.config['ALLOWED_EXTENSIONS'] = {'pdf'}
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
+app.config['EVENT_IMAGE_UPLOAD_FOLDER']= 'files/event_images/'
 
 
 # Initialize extensions
@@ -32,7 +33,6 @@ jwt = JWTManager(app)
 migrate = Migrate(app, db)
 CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "http://localhost:5173"}})
 
-# Create tables within app context
 with app.app_context():
     db.create_all()  
 
@@ -55,7 +55,6 @@ def get_resume_by_application(application_id):
     else:
         return 'Resume not found'
 
-# Register route
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
@@ -70,15 +69,16 @@ def register():
     user_exists = User.query.filter((User.username == username or User.email == email  )).first()
     if user_exists:
         return jsonify({"message": "User with that username or email already exists"}), 400
+    try:
+        hashed_password = generate_password_hash(password)
+        user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({"message": "User registered successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
 
-    hashed_password = generate_password_hash(password)
-    user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role, college_id=college_id)
-    db.session.add(user)
-    db.session.commit()
-
-    return jsonify({"message": "User registered successfully"}), 201
-
-# Login route
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -269,7 +269,6 @@ def view_profile(user_id):
     
     return jsonify(profile.to_dict())
 
-
 @app.route('/api/<int:user_id>/send_message/<int:receiver_id>', methods=['POST'])
 def send_message(user_id, receiver_id):
     user = User.query.get(user_id)
@@ -428,25 +427,63 @@ def create_event_alumni():
     user = User.query.get(current_user)
     if user.role != 'alumni':
         return jsonify({"error": "Only alumni can create events"}), 400
-    data = request.get_json()
-    event_image = data.get('event_image')
+    
+    json_data = request.form.get('json_data')
+    if json_data:
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON format"}), 400
+    else:
+        return jsonify({"error": "No JSON data provided"}), 400
+
+    image_file = request.files.get('image')
+    if not image_file:
+        return jsonify({"error": "Image file is required"}), 400
+
     event_name = data.get('event_name')
     event_description = data.get('event_description')
     max_participants = data.get('max_participants')
-    event_date = data.get('event_date')
-    event_time = data.get('event_time')
+    unique_filename = f"event_{event_name}_{image_file.filename}"
+    event_image_path = os.path.join(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], unique_filename)
+    os.makedirs(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], exist_ok=True)
+    image_file.save(event_image_path)
+    
+    event_date_str = data.get('event_date') 
+    try:
+        event_date = datetime.strptime(event_date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+
+    event_time_str = data.get('event_time') 
+    try:
+        event_time = datetime.strptime(event_time_str, '%H:%M:%S').time()
+    except ValueError:
+        return jsonify({"error": "Invalid time format. Use HH:MM:SS"}), 400
+    
     event_venue = data.get('event_venue')
 
     if not event_name or not event_description or not max_participants or not event_date or not event_time or not event_venue:
         return jsonify({"error": "All fields are required"}), 400
+
     try:
-        event = Event(title=event_name, description=event_description, max_participants=max_participants, event_date=event_date, event_time=event_time, event_venue=event_venue)
+        event = Event(
+            event_name=event_name,
+            event_description=event_description,
+            max_participants=max_participants,
+            event_date=event_date,
+            event_time=event_time,
+            event_venue=event_venue,
+            event_image=event_image_path,
+            event_created_by=current_user
+        )
         db.session.add(event)
         db.session.commit()
         return jsonify({"message": "Event created successfully"}), 201
-    except Exception as e:  
+    except Exception as e:
         db.session.rollback()
         return jsonify({"message": str(e)}), 400
+
 
 @app.route('/api/alumni/create_job', methods=['POST'])
 @jwt_required()
@@ -528,9 +565,28 @@ def download_resume(user_id):
         return jsonify({"error": "Resume file not found"}), 404
     return send_from_directory(base, applicant.resume, as_attachment=True)
 
-
+@app.route('/api/student/get_all_jobs', methods=['GET'])
+@jwt_required()
+def get_all_jobs():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
     
-
+    if user.role != 'student':
+        return jsonify({"error": "Only students can view jobs"}), 400
+    college_id = user.college_id
+    jobs = Jobs.query.join(User, User.id == Jobs.posted_by) \
+    .filter(User.role == 'alumni', User.college_id == college_id) \
+    .all()
+    job_data = []
+    for job in jobs:
+        job_data.append({
+            'title': job.title,
+            'description': job.description,
+            'location': job.location,
+            'company': job.company,
+            'required_skills': job.required_skills
+        })
+    return jsonify(job_data), 200
 
 @app.route('/api/student/apply_job/<int:job_id>', methods=['POST'])
 @jwt_required()
@@ -562,7 +618,6 @@ def get_job_applications():
     if not applications:
         return jsonify({"error": "No job applications found"}), 404
     return jsonify(applications),200
-
 
 @app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
 @jwt_required()
