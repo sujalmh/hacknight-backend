@@ -7,7 +7,6 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from flask_migrate import Migrate
 from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College
 
 # Initialize the app
@@ -24,7 +23,7 @@ migrate = Migrate(app, db)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 migrate = Migrate(app, db)
-CORS(app)
+CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "http://localhost:5173"}})
 
 # Create tables within app context
 with app.app_context():
