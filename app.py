@@ -8,7 +8,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College
+from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event
 from werkzeug.utils import secure_filename
 # from extract import get_about, get_experiences, get_profile_photo, get_skills
 from sqlalchemy.sql.expression import func
@@ -385,6 +385,34 @@ def connections():
             'name': con_user.name
         })
     return jsonify(connection_data), 200
+
+@app.route('/api/create_event', methods=['POST'])
+@jwt_required()
+def create_event():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'alumni':
+        return jsonify({"error": "Only alumni can create events"}), 400
+    data = request.get_json()
+    event_image = data.get('event_image')
+    event_name = data.get('event_name')
+    event_description = data.get('event_description')
+    max_participants = data.get('max_participants')
+    event_date = data.get('event_date')
+    event_time = data.get('event_time')
+    event_venue = data.get('event_venue')
+
+    if not event_name or not event_description or not max_participants or not event_date or not event_time or not event_venue:
+        return jsonify({"error": "All fields are required"}), 400
+    try:
+        event = Event(title=event_name, description=event_description, max_participants=max_participants, event_date=event_date, event_time=event_time, event_venue=event_venue)
+        db.session.add(event)
+        db.session.commit()
+        return jsonify({"message": "Event created successfully"}), 201
+    except Exception as e:  
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
+    
 
 @app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
 @jwt_required()
