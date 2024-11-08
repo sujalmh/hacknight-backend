@@ -89,7 +89,7 @@ def register():
         return jsonify({"message": "User with that username or email already exists"}), 400
     try:
         hashed_password = generate_password_hash(password)
-        user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role,profile_picture=image_path)
+        user = User(username=username, password=hashed_password, name=name, phone_number=phone_number, email=email, role=role,profile_picture=image_path,college_id=college_id)
         db.session.add(user)
         db.session.commit()
         return jsonify({"message": "User registered successfully"}), 201
@@ -635,6 +635,36 @@ def get_job_applications():
     if not applications:
         return jsonify({"error": "No job applications found"}), 404
     return jsonify(applications),200
+
+@app.route('/api/get_events', methods=['GET'])
+@jwt_required()
+def get_events():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+
+    if user.role != 'student':
+        return jsonify({"error": "Only students can view events"}), 400
+
+    events = (Event.query
+              .join(User, Event.event_created_by == User.id)
+              .filter(User.college_id == user.college_id, User.role == 'alumni')
+              .all())
+
+    events_data = [
+        {
+            "id": event.id,
+            "event_name": event.event_name,
+            "event_description": event.event_description,
+            "max_participants": event.max_participants,
+            "event_date": event.event_date.strftime("%Y-%m-%d"),
+            "event_time": event.event_time.strftime("%H:%M:%S"),
+            "event_venue": event.event_venue,
+            "event_image": event.event_image
+        } for event in events
+    ]
+
+    return jsonify({"events": events_data}), 200
+    
 
 @app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
 @jwt_required()
