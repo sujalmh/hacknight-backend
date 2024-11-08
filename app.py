@@ -278,6 +278,21 @@ def get_chat(user1_id, user2_id):
     ]
     return jsonify(chat_history), 200
 
+@app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
+@jwt_required()
+def get_recent_chat(other_user_id):
+    current_user = get_jwt_identity()
+
+    message = Message.query.filter(
+        ((Message.sender_id == current_user) & (Message.receiver_id == other_user_id)) |
+        ((Message.sender_id == other_user_id) & (Message.receiver_id == current_user))
+    ).order_by(Message.timestamp.desc()).first()
+    print(message.content)
+
+    if not message:
+        return jsonify({'message': ''})
+
+    return jsonify({'message': str(message)}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
