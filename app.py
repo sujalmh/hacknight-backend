@@ -25,7 +25,14 @@ CORS(app)
 with app.app_context():
     db.create_all()  
 
-<<<<<<< HEAD
+
+
+@app.route('/api/user/<int:user_id>send_message/<int:receiver_id>', methods=['POST'])
+def send_message(user_id, receiver_id):
+    sender = User.query.get(user_id)
+    receiver = User.query.get(receiver_id)
+    if not sender or not receiver:
+        return jsonify({'message': 'Invalid sender or receiver ID'}), 400
 # Register route
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -41,25 +48,18 @@ def register():
     user = User(username=username, password=hashed_password, role=role)
     db.session.add(user)
     db.session.commit()
-=======
 
->>>>>>> 2740b30b491865386a582d44e02e79c0f281d4c4
+    return jsonify({"message": "User registered successfully"}), 201
 
-@app.route('/api/user/<int:user_id>send_message/<int:receiver_id>', methods=['POST'])
-def send_message(user_id, receiver_id):
-    sender = User.query.get(user_id)
-    receiver = User.query.get(receiver_id)
-    if not sender or not receiver:
-        return jsonify({'message': 'Invalid sender or receiver ID'}), 400
+# Login route
+@app.route('/api/login', methods=['POST'])
+def login():
     data = request.get_json()
-    content = data.get('content')
+    username = data.get('username')
+    password = data.get('password')
 
-    message = Message(sender_id=user_id, receiver_id=receiver_id, content=content)
-    db.session.add(message)
-    db.session.commit()
-    return jsonify({'message': 'Message sent successfully'}), 201
+    user = User.query.filter_by(username=data['username']).first()
 
-<<<<<<< HEAD
     user = User.query.filter_by(username=username).first()
 
     if not user or not check_password_hash(user.password, password):
@@ -110,14 +110,20 @@ def register_admin():
             "role": admin_user.role
         }
     }), 201
-=======
+
+    content = data.get('content')
+
+    message = Message(sender_id=user_id, receiver_id=receiver_id, content=content)
+    db.session.add(message)
+    db.session.commit()
+    return jsonify({'message': 'Message sent successfully'}), 201
+
 @app.route('/api/<int:user1_id>/get_chat/<int:user2_id>', methods=['GET'])
 def get_chat(user1_id, user2_id):
     messages = Message.query.filter(
         ((Message.sender_id == user1_id) & (Message.receiver_id == user2_id)) |
         ((Message.sender_id == user2_id) & (Message.receiver_id == user1_id))
     ).order_by(Message.timestamp).all()
->>>>>>> 2740b30b491865386a582d44e02e79c0f281d4c4
 
     chat_history = [
         {
