@@ -38,7 +38,7 @@ class AlumniProfile(db.Model):
     industry = db.Column(db.String(100), nullable=True)
     experience_years = db.Column(db.Integer, nullable=True)
     skills = db.Column(db.String(250), nullable=True)
-    linkedin = db.String(db.String(300), nullable=True)
+    linkedin = db.Column(db.String(300), nullable=True)
     resume = db.Column(db.String(100), nullable=True)
 
 class StudentProfile(db.Model):
@@ -49,7 +49,7 @@ class StudentProfile(db.Model):
     interests = db.Column(db.String(100), nullable=True)
     learning_years = db.Column(db.Integer, nullable=True)
     skills = db.Column(db.String(250), nullable=True)
-    linkedin = db.String(db.String(300), nullable=True)
+    linkedin = db.Column(db.String(300), nullable=True)
     resume = db.Column(db.String(100), nullable=True)
 
 class College(db.Model):
