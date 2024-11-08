@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify,json
+from flask import Flask, request, jsonify, json, send_from_directory
 import os
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -8,7 +8,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event
+from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event,Jobs,Application
 from werkzeug.utils import secure_filename
 #from extract import get_about, get_experiences, get_profile_photo, get_skills
 from sqlalchemy.sql.expression import func
@@ -39,6 +39,22 @@ with app.app_context():
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
+def get_resume_by_application(application_id):
+    application = Application.query.get(application_id)
+    
+    if not application:
+        return {"error": "Application not found"}
+    
+    # Retrieve the user associated with the application
+    user = application.user
+    
+    resume = user.profile.resume if user.profile else None
+    
+    if resume:
+        return resume
+    else:
+        return 'Resume not found'
+
 # Register route
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -48,7 +64,7 @@ def register():
     name = data.get('name')
     phone_number = data.get('phone_number')
     email = data.get('email')
-    role = data.get('role')
+    role = data.get('role').lower()
 
     user_exists = User.query.filter((User.username == username or User.email == email  )).first()
     if user_exists:
@@ -157,7 +173,7 @@ def create_student_profile():
 
     if allowed_file(resume_file.filename):
         unique_filename = f"{user.username}_{resume_file.filename}"
-        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resume/', unique_filename)
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes/', unique_filename)
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         resume_file.save(resume_path)
         resume = resume_path 
@@ -411,7 +427,123 @@ def create_event_alumni():
     except Exception as e:  
         db.session.rollback()
         return jsonify({"message": str(e)}), 400
+
+@app.route('/api/alumni/create_job', methods=['POST'])
+@jwt_required()
+def create_job_alumni():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'alumni':
+        return jsonify({"error": "Only alumni can create jobs"}), 400
+
+    data = request.get_json()
+    title = data.get('title')
+    description = data.get('description')
+    location = data.get('location')
+    company = data.get('company')
+    required_skills = data.get('required_skills')
+
+    if not title or not description or not location or not company or not required_skills:
+        return jsonify({"error": "All fields are required"}), 400
+
+    try:
+        job = Jobs(title=title, description=description, location=location, company=company, required_skills=required_skills,posted_by=current_user)
+        db.session.add(job)
+        db.session.commit()
+        return jsonify({"message": "Job created successfully"}), 201
+    except Exception as e:
+        db.session.rollback()    
+        return jsonify({"message": str(e)}), 400
     
+@app.route('/api/alumni/get_jobs', methods=['GET'])
+@jwt_required()
+def get_jobs():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'alumni':
+        return jsonify({"error": "Only alumni can view jobs"}), 400
+    jobs = Jobs.query.filter_by(posted_by=current_user).all()
+    job_data = []
+    for job in jobs:
+        job_data.append({
+            'title': job.title,
+            'description': job.description,
+            'location': job.location,
+            'company': job.company,
+            'required_skills': job.required_skills,
+            'number_of_applicants': len(job.applications)
+        })
+    return jsonify(job_data), 200
+
+@app.route('/api/alumni/get_applicants/<int:job_id>', methods=['GET'])
+def get_applicants(job_id):
+    job = Jobs.query.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    applications = Application.query.filter_by(job_id=job_id).all()
+    applicant_data = []
+    for application in applications:
+        
+        applicant = StudentProfile.query.get(application.user_id)
+        if applicant:
+            applicant_data.append({
+                'id': applicant.id,
+                'name':applicant.user.name,
+                'skills': applicant.skills, 
+                'resume': get_resume_by_application(applicant.id)
+            })
+    return jsonify(applicant_data), 200
+
+@app.route('/api/download_resume/<int:user_id>', methods=['GET'])
+def download_resume(user_id):
+    applicant = StudentProfile.query.get(user_id)
+    
+    if not applicant or not applicant.resume:
+        return jsonify({"error": "Resume not found"}), 404
+
+    base = os.getcwd()
+    resume_path = base+'/'+applicant.resume
+
+    if not os.path.isfile(resume_path):
+        return jsonify({"error": "Resume file not found"}), 404
+    return send_from_directory(base, applicant.resume, as_attachment=True)
+
+
+    
+
+
+@app.route('/api/student/apply_job/<int:job_id>', methods=['POST'])
+@jwt_required()
+def apply_job(job_id):
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'student':
+        return jsonify({"error": "Only students can apply for jobs"}), 400
+    job = Jobs.query.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    try:
+        new_application = Application(user_id=current_user, job_id=job_id)
+        db.session.add(new_application)
+        db.session.commit()
+        return jsonify({"message": "Job applied successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
+    
+@app.route('/api/get_job_applications', methods=['GET'])
+@jwt_required()
+def get_job_applications():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'student':
+        return jsonify({"error": "Only students can view job applications"}), 400
+    applications = user.get_job_applications()
+    if not applications:
+        return jsonify({"error": "No job applications found"}), 404
+    return jsonify(applications),200
+
+
 @app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
 @jwt_required()
 def get_recent_chat(other_user_id):
