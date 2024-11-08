@@ -3,8 +3,22 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declared_attr
 from datetime import datetime
 from pytz import timezone
+from sqlalchemy import Table, Column, Integer, ForeignKey
 
 db = SQLAlchemy()
+
+class Application(db.Model):
+    __tablename__ = 'applications'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    job_id = db.Column(db.Integer, db.ForeignKey('jobs.id'), nullable=False)
+    application_date = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+    status = db.Column(db.String(20), default='pending')
+
+    
+    user = relationship('User', back_populates='applications')
+    jobs = relationship('Jobs', back_populates='applications')
+
 
 class Connection(db.Model):
     __tablename__ = 'connections'
@@ -29,6 +43,7 @@ class User(db.Model):
     college_id = db.Column(db.Integer, db.ForeignKey('college.id'),nullable = True)
     alumni_profile = db.relationship('AlumniProfile', backref='user', uselist=False)
     student_profile = db.relationship('StudentProfile', backref='user', uselist=False)
+    applications = relationship('Application', back_populates='user')
     @property
     def profile(self):
         if self.role == 'alumni':
@@ -40,6 +55,16 @@ class User(db.Model):
     connections_as_connected_user = db.relationship('Connection', foreign_keys=[Connection.connected_user_id], backref='connected_user', cascade='all, delete-orphan')
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender')
     received_messages = db.relationship('Message', foreign_keys='Message.receiver_id', backref='receiver')
+
+    def get_job_applications(self):
+        return [
+            {
+                "job_name": application.jobs.title,
+                "date_applied": application.application_date,
+                "status": application.status
+            }
+            for application in self.applications
+        ]
 
 # Profile model
 class AlumniProfile(db.Model):
@@ -96,16 +121,6 @@ class College(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
     users = db.relationship('User', backref='college', lazy=True)
 
-# Job model
-class Job(db.Model):
-    __tablename__ = 'jobs'
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(150), nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    company = db.Column(db.String(150), nullable=False)
-    location = db.Column(db.String(150), nullable=True)
-    posted_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 
 # Event model
 class Event(db.Model):
@@ -165,13 +180,26 @@ class Admin(db.Model):
     email = db.Column(db.String(150), unique=True, nullable=False)
     
 
-
-
 class AdminAnalytics(db.Model):
     __tablename__ = 'admin_analytics'
     id = db.Column(db.Integer, primary_key=True)
     metric_name = db.Column(db.String(150), nullable=False)
     metric_value = db.Column(db.Float, nullable=False)
     recorded_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+
+class Jobs(db.Model):
+    __tablename__ = 'jobs'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    company = db.Column(db.String(150), nullable=False)
+    required_skills = db.Column(db.String(150), nullable=False)
+    location = db.Column(db.String(150), nullable=True)
+    posted_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
+    applications = relationship('Application', back_populates='jobs')
+
+
+
 
 

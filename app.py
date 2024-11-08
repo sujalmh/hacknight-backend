@@ -8,9 +8,9 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event
+from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College,Event,Jobs,Application
 from werkzeug.utils import secure_filename
-from extract import get_about, get_experiences, get_profile_photo, get_skills
+#from extract import get_about, get_experiences, get_profile_photo, get_skills
 from sqlalchemy.sql.expression import func
 
 # Initialize the app
@@ -413,7 +413,66 @@ def create_event_alumni():
     except Exception as e:  
         db.session.rollback()
         return jsonify({"message": str(e)}), 400
+
+@app.route('/api/alumni/create_job', methods=['POST'])
+@jwt_required()
+def create_job_alumni():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'alumni':
+        return jsonify({"error": "Only alumni can create jobs"}), 400
+
+    data = request.get_json()
+    title = data.get('title')
+    description = data.get('description')
+    location = data.get('location')
+    company = data.get('company')
+    required_skills = data.get('required_skills')
+
+    if not title or not description or not location or not company or not required_skills:
+        return jsonify({"error": "All fields are required"}), 400
+
+    try:
+        job = Jobs(title=title, description=description, location=location, company=company, required_skills=required_skills,posted_by=current_user)
+        db.session.add(job)
+        db.session.commit()
+        return jsonify({"message": "Job created successfully"}), 201
+    except Exception as e:
+        db.session.rollback()    
+        return jsonify({"message": str(e)}), 400
     
+@app.route('/api/student/apply_job/<int:job_id>', methods=['POST'])
+@jwt_required()
+def apply_job(job_id):
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'student':
+        return jsonify({"error": "Only students can apply for jobs"}), 400
+    job = Jobs.query.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    try:
+        new_application = Application(user_id=current_user, job_id=job_id)
+        db.session.add(new_application)
+        db.session.commit()
+        return jsonify({"message": "Job applied successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
+    
+@app.route('/api/get_job_applications', methods=['GET'])
+@jwt_required()
+def get_job_applications():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'student':
+        return jsonify({"error": "Only students can view job applications"}), 400
+    applications = user.get_job_applications()
+    if not applications:
+        return jsonify({"error": "No job applications found"}), 404
+    return jsonify(applications),200
+
+
 @app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
 @jwt_required()
 def get_recent_chat(other_user_id):
