@@ -8,6 +8,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College
+from extract import get_about, get_experiences, get_profile_photo, get_skills
+from sqlalchemy.sql.expression import func
 
 # Initialize the app
 app = Flask(__name__)
@@ -217,6 +219,91 @@ def get_chat(user1_id, user2_id):
         } for message in messages
     ]
     return jsonify(chat_history), 200
+
+@app.route("/api/explore", methods=['GET'])
+@jwt_required()
+def explore():
+    alumni = User.query.filter_by(role='alumni').order_by(func.random()).limit(10).all()
+    alumni_data = [
+        {
+            "id": alumnus.id,
+            "name": alumnus.name,
+            "email": alumnus.email,
+            "industry": alumnus.profile.industry,
+        }
+        for alumnus in alumni
+    ]
+    return jsonify(alumni_data), 200
+
+@app.route("/api/send_connection/<int:user1_id>/<int:user2_id>", methods=['POST'])
+@jwt_required()
+def send_connection(user1_id, user2_id):
+    current_user = get_jwt_identity()
+    if user1_id!=current_user:
+        return jsonify({"error": "You can only send connection requests on your own behalf"}), 400
+    user = User.query.get(user1_id)
+    reciever = User.query.get(user2_id)
+    if not user or not reciever:
+        return jsonify({"error": "Invalid user ID"}), 400
+    connection = Connection(user_id=user1_id, connected_user_id=user2_id)
+    db.session.add(connection)
+    db.session.commit()
+    return jsonify({"message": "Connection request sent successfully"}), 201
+
+@app.route("/api/invitations", methods=['GET'])
+@jwt_required()
+def invitations():
+    current_user = get_jwt_identity()
+    if current_user.role != 'alumni':
+        return jsonify({"error": "Only alumni can view connection requests"}), 400
+    
+    user = User.query.get(current_user)
+
+    connection_data = []
+    connections = Connection.filter_by(connected_user_id=user.id, accepted=False).all()
+    for connection in connections:
+        con_user = User.query.get(connection.user_id)
+        connection_data.append({
+            'id': con_user.id,
+            'name': con_user.name,
+            'interests': con_user.interests,
+        })
+    return jsonify(connection_data), 200
+
+@app.route("/api/accept_invitation/<int:user_id>", methods=['POST'])
+@jwt_required()
+def accept_invitation(user_id):
+    current_user = get_jwt_identity()
+    if current_user.role != 'alumni':
+        return jsonify({"error": "Only alumni can view connection requests"}), 400
+    
+    user = User.query.get(current_user)
+    sender = User.query.get(user_id)
+    connection = Connection.query.filter_by(user_id=sender, connected_user_id=current_user).first()
+    connection.accepted = True
+    db.session.commit()
+    return jsonify({"message": "Connection request accepted"}), 200
+
+@app.route("/api/connections", methods=['GET'])
+@jwt_required()
+def connections():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+
+    connections = Connection.query.filter(
+        (Connection.user_id == user.id) | (Connection.connected_user_id == user.id),
+        Connection.accepted == True
+    ).all()
+
+    connection_data = []
+    for connection in connections:
+        con_user = User.query.get(connection.connected_user_id)
+        connection_data.append({
+            'id': con_user.id,
+            'name': con_user.name,
+            'interests': con_user.interests,
+        })
+    return jsonify(connection_data), 200
 
 
 # Run the app

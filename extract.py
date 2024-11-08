@@ -3,7 +3,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
+import requests
 import time
 import os
 from urllib.parse import unquote, unquote_plus
@@ -11,18 +14,23 @@ from urllib.parse import unquote, unquote_plus
 chrome_profile_path = r"C:\Users\sujal\AppData\Local\Google\Chrome\User Data"
 profile_directory = "Default"
 chrome_options = Options()
-chrome_options.add_argument(f"--headless")
-chrome_options.add_argument(f"user-data-dir={chrome_profile_path}")  # Path to user data
-chrome_options.add_argument(f"profile-directory={profile_directory}")  # The specific profile you want to load
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument(f"user-data-dir={chrome_profile_path}")
+chrome_options.add_argument(f"profile-directory={profile_directory}")
+
 
 # Set up WebDriver
-def get_skills(profileurl):
+def get_skills(username):
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    driver.get(profileurl)
+    driver.get("https://www.linkedin.com/in/{}/details/skills".format(username))
 
+    wait = WebDriverWait(driver, 3)
+    elements = wait.until(
+    EC.presence_of_all_elements_located((By.XPATH, '//a[@data-field="skill_page_skill_topic"]'))
+)
 
-    elements = driver.find_elements(By.XPATH, '//a[@data-field="skill_page_skill_topic"]')
-
+    print(elements)
     skills = []
     for element in elements:
         skill = element.get_attribute("href")
@@ -31,8 +39,117 @@ def get_skills(profileurl):
         skill = unquote(skill)
         skill = skill.replace("+"," ")
         skills.append(skill)
+        print(skills)
 
     driver.quit()
     return list(set(skills))
 
-print(get_skills("https://www.linkedin.com/in/sujnankumar/details/skills/"))
+def get_experiences(username):
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    driver.get("https://www.linkedin.com/in/{}/details/experience".format(username))
+
+    wait = WebDriverWait(driver, 3)  # 10 seconds timeout
+    elements = wait.until(
+    EC.presence_of_all_elements_located((By.XPATH, '//div[@data-view-name="profile-component-entity"]'))
+)
+
+    ext = []
+    for element in elements:
+        texts = element.text.split('\n')
+        text = []
+        f=1
+        for i in texts:
+            if '· 3rd+' in i:
+                f=0
+                break
+            if i not in text:
+                text.append(i)
+        if f: ext.append(text)
+    print(ext)
+    exp = []
+    for i in ext:
+        exp.append({'Postion': i[0], 'Company': i[1], 'Duration': i[2]})
+    driver.quit()
+    return exp
+
+def get_profile_photo(username):
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    driver.get("https://www.linkedin.com/in/{}/overlay/photo".format(username))
+    wait = WebDriverWait(driver, 10)  # Wait for up to 10 seconds
+    image_element = wait.until(
+        EC.presence_of_element_located((By.XPATH, '//div[@class="pv-member-photo-modal__content-image-container"]//img'))
+    )
+
+    # Get the URL of the image
+    image_url = image_element.get_attribute('src')
+
+    # Download the image if the URL exists
+    if image_url:
+        # Send a GET request to download the image
+        img_data = requests.get(image_url).content
+
+        # Get the current working directory
+        cwd = os.getcwd()
+
+        save_path = os.path.join(cwd, 'files/profile_photos/', '{}.jpg'.format(username))  # Save in the current working directory
+
+        # Save the image to the local filesystem
+        with open(save_path, 'wb') as f:
+            f.write(img_data)
+
+        print(f"Image successfully downloaded and saved as {save_path}")
+    else:
+        print("No image found.")
+
+    # Close the browser
+    driver.quit()
+
+def get_experiences(username):
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    driver.get("https://www.linkedin.com/in/{}/details/experience".format(username))
+
+    wait = WebDriverWait(driver, 3)  # 10 seconds timeout
+    elements = wait.until(
+    EC.presence_of_all_elements_located((By.XPATH, '//div[@data-view-name="profile-component-entity"]'))
+)
+
+    ext = []
+    for element in elements:
+        texts = element.text.split('\n')
+        text = []
+        f=1
+        for i in texts:
+            if '· 3rd+' in i:
+                f=0
+                break
+            if i not in text:
+                text.append(i)
+        if f: ext.append(text)
+    print(ext)
+    exp = []
+    for i in ext:
+        exp.append({'Postion': i[0], 'Company': i[1], 'Duration': i[2]})
+    driver.quit()
+    return exp
+
+def get_about(username):
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    driver.get("https://www.linkedin.com/in/{}/".format(username))
+
+    wait = WebDriverWait(driver, 5)  # Wait for up to 10 seconds
+    elements = wait.until(
+        EC.presence_of_all_elements_located((By.XPATH, '//section[@data-view-name="profile-card"]'))
+    )
+    data = ""
+    for element in elements:
+        if 'About' in element.text:
+            content = element.text.split()
+
+            for cont in content:
+                if len(cont)>1:
+                    data = cont
+    driver.quit()
+    return data
+    
+get_about("williamhgates")
+
