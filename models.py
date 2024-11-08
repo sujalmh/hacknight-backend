@@ -27,13 +27,14 @@ class User(db.Model):
     role = db.Column(db.String(50), default='student')
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
     college_id = db.Column(db.Integer, db.ForeignKey('college.id'),nullable = True)
-    
-    @declared_attr
-    def profile(cls):
-        if cls.role == 'alumni':
-            return relationship('AlumniProfile', backref='user', uselist=False)
+    alumni_profile = db.relationship('AlumniProfile', backref='user', uselist=False)
+    student_profile = db.relationship('StudentProfile', backref='user', uselist=False)
+    @property
+    def profile(self):
+        if self.role == 'alumni':
+            return self.alumni_profile
         else:
-            return relationship('StudentProfile', backref='user', uselist=False)
+            return self.student_profile
 
     connections_as_user = db.relationship('Connection', foreign_keys=[Connection.user_id], backref='user', cascade='all, delete-orphan')
     connections_as_connected_user = db.relationship('Connection', foreign_keys=[Connection.connected_user_id], backref='connected_user', cascade='all, delete-orphan')

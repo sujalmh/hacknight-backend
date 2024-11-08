@@ -157,7 +157,7 @@ def create_student_profile():
 
     if allowed_file(resume_file.filename):
         unique_filename = f"{user.username}_{resume_file.filename}"
-        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resume/', unique_filename)
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         resume_file.save(resume_path)
         resume = resume_path 
@@ -288,7 +288,7 @@ def explore():
             "id": alumnus.id,
             "name": alumnus.name,
             "email": alumnus.email,
-            "industry": alumnus.profile.industry,
+            "industry": alumnus.profile.industry
         }
         for alumnus in alumni
     ]
@@ -313,19 +313,17 @@ def send_connection(user1_id, user2_id):
 @jwt_required()
 def invitations():
     current_user = get_jwt_identity()
-    if current_user.role != 'alumni':
+    user = User.query.get(current_user)
+    if user.role != 'alumni':
         return jsonify({"error": "Only alumni can view connection requests"}), 400
     
-    user = User.query.get(current_user)
-
     connection_data = []
-    connections = Connection.filter_by(connected_user_id=user.id, accepted=False).all()
+    connections = Connection.query.filter_by(connected_user_id=user.id, accepted=False).all()
     for connection in connections:
         con_user = User.query.get(connection.user_id)
         connection_data.append({
             'id': con_user.id,
             'name': con_user.name,
-            'interests': con_user.interests,
         })
     return jsonify(connection_data), 200
 
@@ -333,12 +331,14 @@ def invitations():
 @jwt_required()
 def accept_invitation(user_id):
     current_user = get_jwt_identity()
-    if current_user.role != 'alumni':
+    user = User.query.get(current_user)
+    
+    if user.role != 'alumni':
         return jsonify({"error": "Only alumni can view connection requests"}), 400
     
-    user = User.query.get(current_user)
     sender = User.query.get(user_id)
-    connection = Connection.query.filter_by(user_id=sender, connected_user_id=current_user).first()
+    
+    connection = Connection.query.filter_by(user_id=sender.id, connected_user_id=current_user).first()
     connection.accepted = True
     db.session.commit()
     return jsonify({"message": "Connection request accepted"}), 200
@@ -356,11 +356,15 @@ def connections():
 
     connection_data = []
     for connection in connections:
-        con_user = User.query.get(connection.connected_user_id)
+        con_user_id = -1
+        if connection.user_id == user.id:
+            con_user_id = connection.connected_user_id
+        else:
+            con_user_id = connection.user_id
+        con_user = User.query.get(con_user_id)
         connection_data.append({
             'id': con_user.id,
-            'name': con_user.name,
-            'interests': con_user.interests,
+            'name': con_user.name
         })
     return jsonify(connection_data), 200
 
