@@ -386,9 +386,9 @@ def connections():
         })
     return jsonify(connection_data), 200
 
-@app.route('/api/create_event', methods=['POST'])
+@app.route('/api/alumni/create_event', methods=['POST'])
 @jwt_required()
-def create_event():
+def create_event_alumni():
     current_user = get_jwt_identity()
     user = User.query.get(current_user)
     if user.role != 'alumni':
@@ -413,7 +413,6 @@ def create_event():
         db.session.rollback()
         return jsonify({"message": str(e)}), 400
     
-
 @app.route('/api/get_recent_chat/<int:other_user_id>', methods=['GET'])
 @jwt_required()
 def get_recent_chat(other_user_id):
