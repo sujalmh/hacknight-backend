@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask_migrate import Migrate
-from models import db, User, Message, AlumniProfile, StudentProfile, Connection
+from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College
 
 # Initialize the app
 app = Flask(__name__)
@@ -40,9 +40,9 @@ def register():
     name = data.get('name')
     phone_number = data.get('phone_number')
     email = data.get('email')
-
     role = data.get('role')
-    user_exists = User.query.filter((User.username == username)).first()
+
+    user_exists = User.query.filter((User.username == username or User.email == email  )).first()
     if user_exists:
         return jsonify({"message": "User with that username or email already exists"}), 400
 
@@ -100,6 +100,27 @@ def register_admin():
             "role": admin_user.role
         }
     }), 201
+
+@app.route('/api/add_college', methods=['POST'])
+@jwt_required()
+def add_college():
+    current_user = get_jwt_identity()
+    user = User.query.filter_by(id=current_user).first()
+    if user.role != 'college':
+        return jsonify({"error": "Only users with college role can add colleges."}), 400
+    data = request.get_json()
+    name = data.get('name')
+    address = data.get('address')
+    website = data.get('website')
+    try:
+        college = College(name=name, address=address, website=website)
+        db.session.add(college)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
+    return jsonify({"message": "College added successfully"}), 201
+
 
 @app.route('/api/profile/student', methods=['POST'])
 @jwt_required()
@@ -191,6 +212,7 @@ def get_chat(user1_id, user2_id):
     chat_history = [
         {
             'sender_id': message.sender_id,
+            'reciever_id': message.receiver_id,
             'content': message.content,
             'timestamp': message.timestamp
         } for message in messages

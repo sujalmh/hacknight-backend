@@ -23,7 +23,6 @@ class User(db.Model):
     phone_number = db.Column(db.Integer,nullable=False)
     role = db.Column(db.String(50), default='student')
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
-    
     college_id = db.Column(db.Integer, db.ForeignKey('college.id'),nullable = True)
     
     @declared_attr
@@ -67,8 +66,6 @@ class College(db.Model):
     address = db.Column(db.String(255))
     website = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
-
-    # Relationship with User
     users = db.relationship('User', backref='college', lazy=True)
 
 # Job model
@@ -116,7 +113,15 @@ class Message(db.Model):
     content = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.now(timezone("Asia/Kolkata")))
 
-# Admin Analytics model
+class Admin(db.Model):
+    __tablename__ = 'admin'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    
+
+
+
 class AdminAnalytics(db.Model):
     __tablename__ = 'admin_analytics'
     id = db.Column(db.Integer, primary_key=True)
