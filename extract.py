@@ -16,15 +16,15 @@ load_dotenv()
 chrome_profile_path = r"{}".format(os.environ.get("CHROME_PATH"))
 profile_directory = os.environ.get("PROFILE")
 chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument(f"user-data-dir={chrome_profile_path}")
 chrome_options.add_argument(f"profile-directory={profile_directory}")
 
 
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+
 # Set up WebDriver
 def get_skills(username):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    
     driver.get("https://www.linkedin.com/in/{}/details/skills".format(username))
 
     wait = WebDriverWait(driver, 3)
@@ -47,7 +47,7 @@ def get_skills(username):
     return list(set(skills))
 
 def get_experiences(username):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    
     driver.get("https://www.linkedin.com/in/{}/details/experience".format(username))
 
     wait = WebDriverWait(driver, 3)  # 10 seconds timeout
@@ -75,7 +75,7 @@ def get_experiences(username):
     return exp
 
 def get_profile_photo(username):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    
     driver.get("https://www.linkedin.com/in/{}/overlay/photo".format(username))
     wait = WebDriverWait(driver, 10)  # Wait for up to 10 seconds
     image_element = wait.until(
@@ -107,7 +107,7 @@ def get_profile_photo(username):
     driver.quit()
 
 def get_experiences(username):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    
     driver.get("https://www.linkedin.com/in/{}/details/experience".format(username))
 
     wait = WebDriverWait(driver, 3)  # 10 seconds timeout
@@ -135,7 +135,7 @@ def get_experiences(username):
     return exp
 
 def get_about(username):
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    
     driver.get("https://www.linkedin.com/in/{}/".format(username))
 
     wait = WebDriverWait(driver, 5)  # Wait for up to 10 seconds
