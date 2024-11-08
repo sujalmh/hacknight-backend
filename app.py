@@ -22,6 +22,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'files/'
 app.config['ALLOWED_EXTENSIONS'] = {'pdf'}
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
+app.config['EVENT_IMAGE_UPLOAD_FOLDER']= 'files/event_images/'
 
 
 # Initialize extensions
@@ -400,6 +401,8 @@ def connections():
         })
     return jsonify(connection_data), 200
 
+from datetime import datetime, time
+
 @app.route('/api/alumni/create_event', methods=['POST'])
 @jwt_required()
 def create_event_alumni():
@@ -407,25 +410,66 @@ def create_event_alumni():
     user = User.query.get(current_user)
     if user.role != 'alumni':
         return jsonify({"error": "Only alumni can create events"}), 400
-    data = request.get_json()
-    event_image = data.get('event_image')
+    
+    json_data = request.form.get('json_data')
+    if json_data:
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON format"}), 400
+    else:
+        return jsonify({"error": "No JSON data provided"}), 400
+
+    image_file = request.files.get('image')
+    if not image_file:
+        return jsonify({"error": "Image file is required"}), 400
+
+    unique_filename = f"event_{current_user}_{image_file.filename}"
+    event_image_path = os.path.join(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], unique_filename)
+    os.makedirs(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], exist_ok=True)
+    image_file.save(event_image_path)
+
     event_name = data.get('event_name')
     event_description = data.get('event_description')
     max_participants = data.get('max_participants')
-    event_date = data.get('event_date')
-    event_time = data.get('event_time')
+    
+    # Parse event_date as a datetime object
+    event_date_str = data.get('event_date')  # assuming it's in 'YYYY-MM-DD' format
+    try:
+        event_date = datetime.strptime(event_date_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+    
+    # Parse event_time as a time object
+    event_time_str = data.get('event_time')  # assuming it's in 'HH:MM:SS' format
+    try:
+        event_time = datetime.strptime(event_time_str, '%H:%M:%S').time()
+    except ValueError:
+        return jsonify({"error": "Invalid time format. Use HH:MM:SS"}), 400
+    
     event_venue = data.get('event_venue')
 
     if not event_name or not event_description or not max_participants or not event_date or not event_time or not event_venue:
         return jsonify({"error": "All fields are required"}), 400
+
     try:
-        event = Event(title=event_name, description=event_description, max_participants=max_participants, event_date=event_date, event_time=event_time, event_venue=event_venue)
+        event = Event(
+            event_name=event_name,
+            event_description=event_description,
+            max_participants=max_participants,
+            event_date=event_date,
+            event_time=event_time,
+            event_venue=event_venue,
+            event_image=event_image_path,
+            event_created_by=current_user
+        )
         db.session.add(event)
         db.session.commit()
         return jsonify({"message": "Event created successfully"}), 201
-    except Exception as e:  
+    except Exception as e:
         db.session.rollback()
         return jsonify({"message": str(e)}), 400
+
 
 @app.route('/api/alumni/create_job', methods=['POST'])
 @jwt_required()
@@ -576,5 +620,14 @@ def get_recent_chat(other_user_id):
 
     return jsonify({'message': str(message.content)}), 200
 
+@app.route('/api/ff', methods=['GET'])
+def ff():
+    user = User.query.get(1)  # Get the user with ID 1
+    if user and user.college_id:
+    # Get the related College object using the foreign key
+        college = College.query.get(user.college_id)
+    if college:
+        user_college_name = college.name
+    return jsonify({'message': user_college_name}), 200
 if __name__ == '__main__':
     app.run(debug=True)
