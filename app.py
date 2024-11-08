@@ -364,8 +364,6 @@ def send_connection(user1_id, user2_id):
 def invitations():
     current_user = get_jwt_identity()
     user = User.query.get(current_user)
-    if user.role != 'alumni':
-        return jsonify({"error": "Only alumni can view connection requests"}), 400
     
     connection_data = []
     connections = Connection.query.filter_by(connected_user_id=user.id, accepted=False).all()
