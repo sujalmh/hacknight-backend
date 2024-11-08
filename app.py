@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,json
+import os
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
@@ -8,6 +9,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from models import db, User, Message, AlumniProfile, StudentProfile, Connection,College
+from werkzeug.utils import secure_filename
+
 
 # Initialize the app
 app = Flask(__name__)
@@ -15,6 +18,9 @@ app.config['JWT_SECRET_KEY'] = 'Num3R0n4u7s!Num3R0n4u7s!'
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=6)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'files/'
+app.config['ALLOWED_EXTENSIONS'] = {'pdf'}
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
 
 # Initialize extensions
@@ -29,6 +35,8 @@ CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "http://l
 with app.app_context():
     db.create_all()  
 
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 # Register route
 @app.route('/api/register', methods=['POST'])
@@ -124,38 +132,90 @@ def add_college():
 @app.route('/api/profile/student', methods=['POST'])
 @jwt_required()
 def create_student_profile():
-    data = request.get_json()
-
     current_user = get_jwt_identity()
 
+    json_data = request.form.get('json_data')
+    if json_data:
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON format"}), 400
+    else:
+        return jsonify({"error": "No JSON data provided"}), 400
+
     user = User.query.get(current_user)
+
     if user.role != 'student':
         return jsonify({"error": "Only students can create student profiles"}), 400
+    
+    if 'resume' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    resume_file = request.files['resume']
+    resume = None
 
-    new_profile = StudentProfile(
+    if allowed_file(resume_file.filename):
+        unique_filename = f"{user.username}_{resume_file.filename}"
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        resume_file.save(resume_path)
+        resume = resume_path 
+
+    else:
+        jsonify({"error": "Invalid file format or file too large."}), 413 
+
+    try:
+        new_profile = StudentProfile(
         user_id=current_user,
         bio=data.get('bio', ''),
         interests=data.get('interests', ''),
         learning_years=data.get('learning_years', ''),
         skills=data.get('skills', ''),
         linkedin=data.get('linkedin',''),
-        resume=data.get('resume', '')
-    )
-    db.session.add(new_profile)
-    db.session.commit()
+        resume=resume
+        
+        )
+        db.session.add(new_profile)
+        db.session.commit()
+        return jsonify({"message": "Student profile created successfully"}), 201
 
-    return jsonify({"message": "Student profile created successfully"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
 
 @app.route('/api/profile/alumni', methods=['POST'])
 @jwt_required()
 def create_alumni_profile():
-    data = request.get_json()
-
     current_user = get_jwt_identity() 
+
+    json_data = request.form.get('json_data')
+    if json_data:
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON format"}), 400
+    else:
+        return jsonify({"error": "No JSON data provided"}), 400
 
     user = User.query.get(current_user)
     if user.role != 'alumni':
         return jsonify({"error": "Only alumni can create alumni profiles"}), 400
+    
+    if 'resume' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    resume_file = request.files['resume']
+    resume = None
+
+    if allowed_file(resume_file.filename):
+        unique_filename = f"{user.username}_{resume_file.filename}"
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        resume_file.save(resume_path)
+        resume = resume_path 
+
+    else:
+        jsonify({"error": "Invalid file format or file too large."}), 413  
 
     new_profile = AlumniProfile(
         user_id=current_user,
@@ -164,7 +224,7 @@ def create_alumni_profile():
         experience_years=data.get('experience_years', ''),
         skills=data.get('skills', ''),
         linkedin=data.get('linkedin',''),
-        resume=data.get('resume', '')
+        resume= resume
     )
     db.session.add(new_profile)
     db.session.commit()
@@ -219,6 +279,5 @@ def get_chat(user1_id, user2_id):
     return jsonify(chat_history), 200
 
 
-# Run the app
 if __name__ == '__main__':
     app.run(debug=True)

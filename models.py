@@ -48,7 +48,7 @@ class AlumniProfile(db.Model):
     skills = db.Column(db.String(250), nullable=True)
     linkedin = db.Column(db.String(300), nullable=True)
     resume = db.Column(db.String(100), nullable=True)
-
+  
 class StudentProfile(db.Model):
     __tablename__ = 'student_profiles'
     id = db.Column(db.Integer, primary_key=True)
