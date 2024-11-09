@@ -572,6 +572,32 @@ def get_applicants(job_id):
             })
     return jsonify(applicant_data), 200
 
+@app.route('/api/alumni/get_events', methods=['GET'])
+@jwt_required()
+def get_events_alumni():
+    current_user = get_jwt_identity()
+    user = User.query.get(current_user)
+    if user.role != 'alumni':
+        return jsonify({"error": "Only alumni can view events"}), 400
+    events = (Event.query
+              .join(User, Event.event_created_by == User.id)
+              .filter(User.college_id == user.college_id, User.role == 'student')
+              .all())
+
+    events_data = [
+        {
+            "id": event.id,
+            "event_name": event.event_name,
+            "event_description": event.event_description,
+            "max_participants": event.max_participants,
+            "event_date": event.event_date,
+            "event_time": event.event_time,
+            "event_venue": event.event_venue,
+            "event_image": event.event_image,
+            "number_of_applications": len(event.event_applications)
+        } for event in events
+    ]
+    return jsonify(events_data), 200
 
 @app.route('/api/download_resume/<int:user_id>', methods=['GET'])
 def download_resume(user_id):
@@ -664,7 +690,7 @@ def get_events():
             "event_date": event.event_date.strftime("%Y-%m-%d"),
             "event_time": event.event_time.strftime("%H:%M:%S"),
             "event_venue": event.event_venue,
-            "event_image": event.event_image
+            "event_image": event.event_image,
         } for event in events
     ]
 
