@@ -175,8 +175,10 @@ def get_college():
 @jwt_required()
 def create_student_profile():
     current_user = get_jwt_identity()
-
+    
     json_data = request.form.get('json_data')
+    
+    print(json_data)
     if json_data:
         try:
             data = json.loads(json_data)
@@ -198,26 +200,31 @@ def create_student_profile():
     resume = None
 
     if allowed_file(resume_file.filename):
-        unique_filename = f"{user.username}_{resume_file.filename}"
-        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes/', unique_filename)
+        unique_filename = f"resume_{user.username}.pdf"
+        cwd = os.getcwd()
+        resume = os.path.join(app.config['UPLOAD_FOLDER'].replace('/','\\'), 'resumes\\', unique_filename)
+        resume_path = os.path.join(cwd, app.config['UPLOAD_FOLDER'].replace('/','\\'), 'resumes\\', unique_filename)
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         resume_file.save(resume_path)
-        resume = resume_path 
-
+    
     else:
         jsonify({"error": "Invalid file format or file too large."}), 413 
+    print(resume)
 
+
+    
     try:
         new_profile = StudentProfile(
         user_id=current_user,
         bio=data.get('bio', ''),
         interests=data.get('interests', ''),
         learning_years=data.get('learning_years', ''),
-        skills=data.get('skills', ''),
+        skills=','.join(data.get('skills', '')),
         linkedin=data.get('linkedin',''),
         resume=resume
         
         )
+        print(new_profile)
         db.session.add(new_profile)
         db.session.commit()
         return jsonify({"message": "Student profile created successfully"}), 201
@@ -273,7 +280,7 @@ def create_alumni_profile():
     )
     db.session.add(new_profile)
     db.session.commit()
-
+    print("Alumni profile created successfully")
     return jsonify({"message": "Alumni profile created successfully"}), 201
 
 @app.route('/api/view_profile/<int:user_id>', methods=['GET'])
