@@ -305,7 +305,7 @@ def send_message(user_id, receiver_id):
     db.session.commit()
     return jsonify({'message': 'Message sent successfully'}), 201
 
-@app.route('/api/<int:user_id>/chat_staus/<int:reciever_id>', methods=['POST'])
+@app.route('/api/<int:user_id>/chat_status/<int:reciever_id>', methods=['POST'])
 def chat_status(user_id, reciever_id):
     user = User.query.get(user_id)
     receiver = User.query.get(reciever_id)
@@ -448,27 +448,15 @@ def create_event_alumni():
     user = User.query.get(current_user)
     if user.role != 'alumni':
         return jsonify({"error": "Only alumni can create events"}), 400
-    
-    json_data = request.form.get('json_data')
-    if json_data:
-        try:
-            data = json.loads(json_data)
-        except json.JSONDecodeError:
-            return jsonify({"error": "Invalid JSON format"}), 400
-    else:
-        return jsonify({"error": "No JSON data provided"}), 400
 
-    image_file = request.files.get('image')
-    if not image_file:
-        return jsonify({"error": "Image file is required"}), 400
-
+    data = request.get_json()
     event_name = data.get('event_name')
     event_description = data.get('event_description')
     max_participants = data.get('max_participants')
-    unique_filename = f"event_{event_name}_{image_file.filename}"
-    event_image_path = os.path.join(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], unique_filename)
-    os.makedirs(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], exist_ok=True)
-    image_file.save(event_image_path)
+    # unique_filename = f"event_{event_name}_{image_file.filename}"
+    # event_image_path = os.path.join(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], unique_filename)
+    # os.makedirs(app.config['EVENT_IMAGE_UPLOAD_FOLDER'], exist_ok=True)
+    # image_file.save(event_image_path)
     
     event_date_str = data.get('event_date') 
     try:
@@ -495,7 +483,6 @@ def create_event_alumni():
             event_date=event_date,
             event_time=event_time,
             event_venue=event_venue,
-            event_image=event_image_path,
             event_created_by=current_user
         )
         db.session.add(event)
