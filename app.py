@@ -273,7 +273,7 @@ def create_alumni_profile():
         position=data.get('position', ''),
         company=data.get('company', ''),
         experience_years=data.get('experience_years', ''),
-        skills=data.get('skills', ''),
+        skills=','.join(data.get('skills', '')),
         linkedin=data.get('linkedin',''),
         passout_year = data.get('passout_year', ''),
         resume= resume
