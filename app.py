@@ -66,7 +66,7 @@ def register():
             return jsonify({"error": "Invalid JSON format"}), 400
     else:
         return jsonify({"error": "No JSON data provided"}), 400
-    profile_picture = request.files['profile_picture']
+    profile_picture = request.files.get('profile_picture')
 
     username = data.get('username')
     password = data.get('password')
@@ -75,14 +75,14 @@ def register():
     email = data.get('email')
     college_id = data.get('college_id')
     role = data.get('role').lower()
+    image_path = None
     if profile_picture:
         unique_filename = f"profile_{username}_{profile_picture.filename}"
         image_path = os.path.join(app.config['PROFILE_UPLOAD_FOLDER'], unique_filename)
         os.makedirs(app.config['PROFILE_UPLOAD_FOLDER'], exist_ok=True)
         profile_picture.save(image_path)
         picture = image_path
-    else:
-        profile_picture = None
+    
 
     user_exists = User.query.filter((User.username == username or User.email == email )).first()
     if user_exists:
@@ -175,10 +175,8 @@ def get_college():
 @jwt_required()
 def create_student_profile():
     current_user = get_jwt_identity()
-    
+
     json_data = request.form.get('json_data')
-    
-    print(json_data)
     if json_data:
         try:
             data = json.loads(json_data)
@@ -200,31 +198,26 @@ def create_student_profile():
     resume = None
 
     if allowed_file(resume_file.filename):
-        unique_filename = f"resume_{user.username}.pdf"
-        cwd = os.getcwd()
-        resume = os.path.join(app.config['UPLOAD_FOLDER'].replace('/','\\'), 'resumes\\', unique_filename)
-        resume_path = os.path.join(cwd, app.config['UPLOAD_FOLDER'].replace('/','\\'), 'resumes\\', unique_filename)
+        unique_filename = f"{user.username}_{resume_file.filename}"
+        resume_path = os.path.join(app.config['UPLOAD_FOLDER'], 'resumes/', unique_filename)
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         resume_file.save(resume_path)
-    
+        resume = resume_path 
+
     else:
         jsonify({"error": "Invalid file format or file too large."}), 413 
-    print(resume)
 
-
-    
     try:
         new_profile = StudentProfile(
         user_id=current_user,
         bio=data.get('bio', ''),
         interests=data.get('interests', ''),
         learning_years=data.get('learning_years', ''),
-        skills=','.join(data.get('skills', '')),
+        skills=data.get('skills', ''),
         linkedin=data.get('linkedin',''),
         resume=resume
         
         )
-        print(new_profile)
         db.session.add(new_profile)
         db.session.commit()
         return jsonify({"message": "Student profile created successfully"}), 201
@@ -273,14 +266,14 @@ def create_alumni_profile():
         position=data.get('position', ''),
         company=data.get('company', ''),
         experience_years=data.get('experience_years', ''),
-        skills=','.join(data.get('skills', '')),
+        skills=data.get('skills', ''),
         linkedin=data.get('linkedin',''),
         passout_year = data.get('passout_year', ''),
         resume= resume
     )
     db.session.add(new_profile)
     db.session.commit()
-    print("Alumni profile created successfully")
+
     return jsonify({"message": "Alumni profile created successfully"}), 201
 
 @app.route('/api/view_profile/<int:user_id>', methods=['GET'])
