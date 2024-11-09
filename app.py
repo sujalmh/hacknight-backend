@@ -785,7 +785,6 @@ def get_announcements():
     current_user = get_jwt_identity()
     user = User.query.get(current_user)
 
-    # Get all announcements for the user's passout year
     announcements = Announcement.query.filter_by(passout_year=user.passout_year).all()
 
     return jsonify([{
