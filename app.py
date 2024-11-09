@@ -354,11 +354,14 @@ def explore():
     user = User.query.get(current_user)
     alumni = User.query.filter_by(role='alumni', college_id = user.college_id).all()
     print(user.college_id, user.email)
+    cwd = os.getcwd()
     alumni_data = [
         {
             "id": alumnus.id,
-            "profile_picture": alumnus.profile_picture,
+            "profile_picture": "http://127.0.0.1:5000/{}".format(alumnus.profile_picture),
+            "email": alumnus.email,
             "name": alumnus.name,
+            "skills": alumnus.profile.skills,
             "position": alumnus.profile.position,
             "company": alumnus.profile.company
         }
@@ -827,6 +830,14 @@ def get_announcements():
         'user_name': announcement.user.name,
         'created_at': announcement.created_at
     } for announcement in announcements]), 200
+
+@app.route('/files/<path:filename>/<path:filename1>')
+def uploaded_file(filename, filename1):
+    print(1)
+    cwd = os.getcwd()
+    print(os.path.join(cwd, app.config['UPLOAD_FOLDER'].replace('/','\\'),filename))
+    return send_from_directory(os.path.join(cwd, app.config['UPLOAD_FOLDER'].replace('/','\\'),filename),filename1)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
